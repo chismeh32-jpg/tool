@@ -1,0 +1,102 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout
+  title="Calculadora de Propinas — Divide la cuenta fácilmente"
+  description="Calcula la propina y divide la cuenta entre varios comensales al instante. Gratis y sin registro."
+  canonical="/tools/propina"
+>
+<section class="tool-page">
+  <div class="container-sm">
+    <div class="tool-page-header">
+      <div class="breadcrumb"><a href="/">ToolboxES</a><span>›</span><span>Calculadora de Propinas</span></div>
+      <h1>💸 Calculadora de Propinas</h1>
+      <p>Calcula la propina y divide la cuenta entre varias personas fácilmente.</p>
+    </div>
+
+    <div class="ad-slot ad-slot-banner">Publicidad</div>
+
+    <div class="calc-card">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cuenta">Total de la cuenta (€)</label>
+          <input type="number" id="cuenta" placeholder="85.50" min="0" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label for="propina-pct">Propina (%)</label>
+          <select id="propina-pct">
+            <option value="5">5% — Servicio básico</option>
+            <option value="10" selected>10% — Habitual</option>
+            <option value="15">15% — Muy bueno</option>
+            <option value="20">20% — Excelente</option>
+            <option value="custom">Personalizado</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" id="custom-group" style="display:none">
+          <label for="propina-custom">Porcentaje personalizado (%)</label>
+          <input type="number" id="propina-custom" placeholder="12" min="0" max="100" />
+        </div>
+        <div class="form-group">
+          <label for="personas">Número de personas</label>
+          <input type="number" id="personas" placeholder="4" min="1" value="1" />
+        </div>
+      </div>
+      <button class="btn-calc" id="calcular">Calcular propina</button>
+
+      <div class="result-box" id="resultado">
+        <h3>Propina total</h3>
+        <div class="result-main" id="prop-total">—</div>
+        <div class="result-grid">
+          <div class="result-item"><div class="rl">Total con propina</div><div class="rv" id="total-prop">—</div></div>
+          <div class="result-item"><div class="rl">Por persona</div><div class="rv" id="por-persona">—</div></div>
+          <div class="result-item"><div class="rl">Propina por persona</div><div class="rv" id="prop-persona">—</div></div>
+          <div class="result-item"><div class="rl">Cuenta por persona</div><div class="rv" id="cuenta-persona">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ad-slot ad-slot-banner">Publicidad</div>
+
+    <div class="info-section">
+      <h2>¿Cuánto se deja de propina en España?</h2>
+      <p>En España no existe una norma fija para las propinas — son voluntarias. Lo habitual es dejar entre un 5% y un 10% en restaurantes si el servicio ha sido bueno. En bares o cafeterías se suele redondear la cantidad o dejar el cambio.</p>
+      <p>En países como Estados Unidos, la propina del 15-20% es prácticamente obligatoria. Si viajas al extranjero, infórmate antes sobre las costumbres locales.</p>
+    </div>
+  </div>
+</section>
+</Layout>
+
+<script>
+const pctSelect = document.getElementById('propina-pct') as HTMLSelectElement;
+const customGrp = document.getElementById('custom-group') as HTMLElement;
+
+pctSelect.addEventListener('change', () => {
+  customGrp.style.display = pctSelect.value === 'custom' ? 'block' : 'none';
+});
+
+function fmt(n: number) {
+  return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+
+document.getElementById('calcular')?.addEventListener('click', () => {
+  const cuenta   = parseFloat((document.getElementById('cuenta') as HTMLInputElement).value);
+  const personas = parseInt((document.getElementById('personas') as HTMLInputElement).value) || 1;
+  let pct = parseFloat(pctSelect.value);
+  if (pctSelect.value === 'custom') {
+    pct = parseFloat((document.getElementById('propina-custom') as HTMLInputElement).value) || 0;
+  }
+  if (!cuenta) return alert('Introduce el total de la cuenta.');
+
+  const propina   = cuenta * pct / 100;
+  const totalProp = cuenta + propina;
+
+  (document.getElementById('prop-total')    as HTMLElement).textContent = fmt(propina);
+  (document.getElementById('total-prop')    as HTMLElement).textContent = fmt(totalProp);
+  (document.getElementById('por-persona')   as HTMLElement).textContent = fmt(totalProp / personas);
+  (document.getElementById('prop-persona')  as HTMLElement).textContent = fmt(propina / personas);
+  (document.getElementById('cuenta-persona')as HTMLElement).textContent = fmt(cuenta / personas);
+  document.getElementById('resultado')?.classList.add('show');
+});
+</script>

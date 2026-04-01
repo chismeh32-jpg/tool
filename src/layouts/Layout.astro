@@ -1,0 +1,116 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description: string;
+  canonical?: string;
+}
+
+const { title, description, canonical } = Astro.props;
+const siteUrl  = 'https://www.toolboxes.es'; // ⚠️ Cambia a tu dominio
+const fullTitle = title.includes('ToolboxES') ? title : `${title} | ToolboxES`;
+const canonUrl  = canonical ? `${siteUrl}${canonical}` : `${siteUrl}${Astro.url.pathname}`;
+
+const tools = [
+  { href: '/tools/hipoteca',    label: '🏠 Hipoteca' },
+  { href: '/tools/imc',         label: '⚖️ IMC' },
+  { href: '/tools/contraseña',  label: '🔐 Contraseña' },
+  { href: '/tools/propina',     label: '💸 Propina' },
+  { href: '/tools/conversor',   label: '📐 Conversor' },
+  { href: '/tools/ahorro',      label: '💰 Ahorro' },
+];
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{fullTitle}</title>
+  <meta name="description" content={description} />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href={canonUrl} />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#2563eb" />
+
+  <!-- OG -->
+  <meta property="og:type"        content="website" />
+  <meta property="og:site_name"   content="ToolboxES" />
+  <meta property="og:title"       content={fullTitle} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url"         content={canonUrl} />
+  <meta name="twitter:card"       content="summary" />
+
+  <!-- Google AdSense — sustituye XX por tu Publisher ID cuando lo tengas -->
+  <!-- <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXX" crossorigin="anonymous"></script> -->
+
+  <!-- Schema.org WebSite -->
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "ToolboxES",
+    "url": siteUrl,
+    "description": "Calculadoras y herramientas gratuitas en español",
+    "inLanguage": "es",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": `${siteUrl}/?q={search_term_string}`,
+      "query-input": "required name=search_term_string"
+    }
+  })} />
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <div class="container">
+    <div class="header-inner">
+      <a href="/" class="logo">
+        <span class="logo-icon">🧰</span>
+        Toolbox<span>ES</span>
+      </a>
+      <nav class="nav">
+        {tools.map(t => <a href={t.href}>{t.label}</a>)}
+      </nav>
+    </div>
+  </div>
+</header>
+
+<!-- CONTENT -->
+<slot />
+
+<!-- FOOTER -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="logo" style="color:white">🧰 Toolbox<span style="color:rgba(255,255,255,0.5)">ES</span></div>
+        <p>Herramientas gratuitas para el día a día. Calculadoras prácticas, rápidas y sin publicidad invasiva.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Herramientas</h4>
+        <ul>
+          {tools.map(t => <li><a href={t.href}>{t.label}</a></li>)}
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="/privacidad">Privacidad</a></li>
+          <li><a href="/cookies">Cookies</a></li>
+          <li><a href="/aviso-legal">Aviso legal</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© {new Date().getFullYear()} ToolboxES — Todos los derechos reservados</span>
+      <span>Herramientas gratuitas en español</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

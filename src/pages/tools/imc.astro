@@ -1,0 +1,101 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout
+  title="Calculadora de IMC — Índice de Masa Corporal"
+  description="Calcula tu Índice de Masa Corporal (IMC) gratis. Descubre si estás en tu peso ideal según los criterios de la OMS."
+  canonical="/tools/imc"
+>
+<section class="tool-page">
+  <div class="container-sm">
+    <div class="tool-page-header">
+      <div class="breadcrumb"><a href="/">ToolboxES</a><span>›</span><span>Calculadora IMC</span></div>
+      <h1>⚖️ Calculadora de IMC</h1>
+      <p>Calcula tu Índice de Masa Corporal y descubre en qué categoría te encuentras.</p>
+    </div>
+
+    <div class="ad-slot ad-slot-banner">Publicidad</div>
+
+    <div class="calc-card">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="peso">Peso (kg)</label>
+          <input type="number" id="peso" placeholder="70" min="1" />
+        </div>
+        <div class="form-group">
+          <label for="altura">Altura (cm)</label>
+          <input type="number" id="altura" placeholder="175" min="1" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="edad">Edad (años)</label>
+          <input type="number" id="edad" placeholder="30" min="1" max="120" />
+        </div>
+        <div class="form-group">
+          <label for="sexo">Sexo</label>
+          <select id="sexo">
+            <option value="h">Hombre</option>
+            <option value="m">Mujer</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-calc" id="calcular">Calcular IMC</button>
+
+      <div class="result-box" id="resultado">
+        <h3>Tu IMC</h3>
+        <div class="result-main" id="imc-valor">—</div>
+        <div class="result-grid">
+          <div class="result-item"><div class="rl">Categoría</div><div class="rv" id="categoria">—</div></div>
+          <div class="result-item"><div class="rl">Peso ideal</div><div class="rv" id="peso-ideal">—</div></div>
+          <div class="result-item"><div class="rl">Diferencia</div><div class="rv" id="diferencia">—</div></div>
+          <div class="result-item"><div class="rl">Rango normal</div><div class="rv" id="rango">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ad-slot ad-slot-banner">Publicidad</div>
+
+    <div class="info-section">
+      <h2>¿Qué es el IMC?</h2>
+      <p>El Índice de Masa Corporal (IMC) es una medida que relaciona el peso con la altura. Se calcula dividiendo el peso en kilos entre el cuadrado de la altura en metros: IMC = kg / m².</p>
+      <p><strong>Clasificación de la OMS:</strong> Bajo peso (&lt;18.5) · Normal (18.5–24.9) · Sobrepeso (25–29.9) · Obesidad I (30–34.9) · Obesidad II (35–39.9) · Obesidad III (≥40).</p>
+      <p>El IMC es una herramienta orientativa. No tiene en cuenta la composición corporal (músculo vs grasa). Consulta siempre a un profesional sanitario para una evaluación completa.</p>
+    </div>
+  </div>
+</section>
+</Layout>
+
+<script>
+document.getElementById('calcular')?.addEventListener('click', () => {
+  const peso   = parseFloat((document.getElementById('peso') as HTMLInputElement).value);
+  const altura = parseFloat((document.getElementById('altura') as HTMLInputElement).value);
+
+  if (!peso || !altura) return alert('Por favor, introduce tu peso y altura.');
+
+  const h   = altura / 100;
+  const imc = peso / (h * h);
+
+  let cat = '';
+  if      (imc < 18.5) cat = 'Bajo peso';
+  else if (imc < 25)   cat = '✅ Normal';
+  else if (imc < 30)   cat = 'Sobrepeso';
+  else if (imc < 35)   cat = 'Obesidad I';
+  else if (imc < 40)   cat = 'Obesidad II';
+  else                  cat = 'Obesidad III';
+
+  const pesoMin = (18.5 * h * h).toFixed(1);
+  const pesoMax = (24.9 * h * h).toFixed(1);
+  const pesoIdeal = ((18.5 + 24.9) / 2 * h * h).toFixed(1);
+  const diff = (peso - parseFloat(pesoIdeal)).toFixed(1);
+  const diffStr = parseFloat(diff) > 0 ? `+${diff} kg` : `${diff} kg`;
+
+  (document.getElementById('imc-valor') as HTMLElement).textContent = imc.toFixed(1);
+  (document.getElementById('categoria') as HTMLElement).textContent = cat;
+  (document.getElementById('peso-ideal') as HTMLElement).textContent = `${pesoIdeal} kg`;
+  (document.getElementById('diferencia') as HTMLElement).textContent = diffStr;
+  (document.getElementById('rango') as HTMLElement).textContent = `${pesoMin}–${pesoMax} kg`;
+
+  document.getElementById('resultado')?.classList.add('show');
+});
+</script>
