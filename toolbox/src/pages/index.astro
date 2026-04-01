@@ -1,0 +1,138 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const tools = [
+  {
+    href: '/tools/hipoteca',
+    icon: '🏠',
+    color: '#dbeafe',
+    badge: 'Popular',
+    title: 'Calculadora de Hipoteca',
+    desc: 'Calcula tu cuota mensual, el total de intereses y el coste real de tu hipoteca en segundos.',
+  },
+  {
+    href: '/tools/imc',
+    icon: '⚖️',
+    color: '#dcfce7',
+    badge: 'Salud',
+    title: 'Calculadora de IMC',
+    desc: 'Conoce tu Índice de Masa Corporal y descubre si estás en tu peso ideal según la OMS.',
+  },
+  {
+    href: '/tools/contraseña',
+    icon: '🔐',
+    color: '#fef3c7',
+    badge: 'Seguridad',
+    title: 'Generador de Contraseñas',
+    desc: 'Crea contraseñas seguras y aleatorias con la longitud y complejidad que necesites.',
+  },
+  {
+    href: '/tools/propina',
+    icon: '💸',
+    color: '#ede9fe',
+    badge: 'Finanzas',
+    title: 'Calculadora de Propinas',
+    desc: 'Divide la cuenta y calcula la propina entre varios comensales fácilmente.',
+  },
+  {
+    href: '/tools/conversor',
+    icon: '📐',
+    color: '#fce7f3',
+    badge: 'Utilidad',
+    title: 'Conversor de Unidades',
+    desc: 'Convierte entre km y millas, kg y libras, Celsius y Fahrenheit, y muchas más.',
+  },
+  {
+    href: '/tools/ahorro',
+    icon: '💰',
+    color: '#d1fae5',
+    badge: 'Finanzas',
+    title: 'Calculadora de Ahorro',
+    desc: 'Descubre cuánto tienes que ahorrar al mes para alcanzar tu objetivo financiero.',
+  },
+];
+---
+
+<Layout
+  title="ToolboxES — Calculadoras y herramientas gratuitas en español"
+  description="Calculadoras gratuitas en español: hipoteca, IMC, contraseñas, propinas, conversor de unidades y ahorro. Rápidas, precisas y sin registro."
+  canonical="/"
+>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="container">
+      <h1>Herramientas gratuitas<br />para el día a día</h1>
+      <p>Calculadoras precisas, generadores y conversores. Sin registro, sin anuncios molestos, totalmente gratis.</p>
+      <div class="search-bar">
+        <input type="text" id="search" placeholder="Busca una herramienta..." autocomplete="off" />
+        <button type="button">Buscar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- AD SLOT — Banner superior -->
+  <div class="container">
+    <div class="ad-slot ad-slot-banner" style="margin-top:32px">
+      <!-- Google AdSense Banner 728x90 -->
+      Publicidad
+    </div>
+  </div>
+
+  <!-- TOOLS GRID -->
+  <section class="tools-section">
+    <div class="container">
+      <h2>Todas las herramientas</h2>
+      <p class="sub">Selecciona la que necesitas — son completamente gratis</p>
+
+      <div class="tools-grid" id="tools-grid">
+        {tools.map(tool => (
+          <a href={tool.href} class="tool-card">
+            <div class="tool-icon" style={`background:${tool.color}`}>{tool.icon}</div>
+            <span class="tool-badge">{tool.badge}</span>
+            <h3>{tool.title}</h3>
+            <p>{tool.desc}</p>
+            <span class="tool-link">
+              Usar herramienta
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </span>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- AD SLOT — Rectángulo medio -->
+  <div class="container" style="display:flex;justify-content:center;margin-bottom:48px">
+    <div class="ad-slot ad-slot-rect">
+      <!-- Google AdSense 300x250 -->
+      Publicidad
+    </div>
+  </div>
+
+  <!-- SEO TEXT -->
+  <section style="padding:0 0 64px">
+    <div class="container-sm">
+      <div class="info-section">
+        <h2>¿Por qué usar ToolboxES?</h2>
+        <p>ToolboxES es una colección de herramientas gratuitas diseñadas para resolver cálculos del día a día de forma rápida y sencilla. No necesitas instalar nada ni crear una cuenta.</p>
+        <p>Todas las calculadoras funcionan directamente en tu navegador, son gratuitas y están en español. Desde calcular la cuota de tu hipoteca hasta generar una contraseña segura — todo en un mismo sitio.</p>
+        <p>Las herramientas se actualizan regularmente para garantizar resultados precisos y una experiencia de uso óptima tanto en móvil como en escritorio.</p>
+      </div>
+    </div>
+  </section>
+
+</Layout>
+
+<script>
+const input = document.getElementById('search') as HTMLInputElement;
+const cards = document.querySelectorAll<HTMLElement>('.tool-card');
+
+input?.addEventListener('input', () => {
+  const q = input.value.toLowerCase();
+  cards.forEach(card => {
+    const text = card.textContent?.toLowerCase() || '';
+    card.style.display = text.includes(q) ? '' : 'none';
+  });
+});
+</script>

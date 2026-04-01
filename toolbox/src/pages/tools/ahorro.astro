@@ -1,0 +1,154 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout
+  title="Calculadora de Ahorro — Cuánto ahorrar para tu objetivo"
+  description="Calcula cuánto debes ahorrar al mes para alcanzar tu objetivo financiero. Incluye interés compuesto. Gratis."
+  canonical="/tools/ahorro"
+>
+<section class="tool-page">
+  <div class="container-sm">
+    <div class="tool-page-header">
+      <div class="breadcrumb"><a href="/">ToolboxES</a><span>›</span><span>Calculadora de Ahorro</span></div>
+      <h1>💰 Calculadora de Ahorro</h1>
+      <p>Descubre cuánto necesitas ahorrar cada mes para alcanzar tu meta financiera.</p>
+    </div>
+
+    <div class="ad-slot ad-slot-banner">Publicidad</div>
+
+    <div class="calc-card">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="meta">Objetivo de ahorro (€)</label>
+          <input type="number" id="meta" placeholder="10000" min="0" />
+        </div>
+        <div class="form-group">
+          <label for="inicial">Ahorro inicial (€)</label>
+          <input type="number" id="inicial" placeholder="0" min="0" value="0" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="plazo-a">Plazo (meses)</label>
+          <input type="number" id="plazo-a" placeholder="24" min="1" />
+        </div>
+        <div class="form-group">
+          <label for="interes-a">Rendimiento anual (%)</label>
+          <input type="number" id="interes-a" placeholder="2" step="0.1" min="0" value="2" />
+        </div>
+      </div>
+      <button class="btn-calc" id="calcular">Calcular ahorro</button>
+
+      <div class="result-box" id="resultado">
+        <h3>Ahorro mensual necesario</h3>
+        <div class="result-main" id="mensual">—</div>
+        <div class="result-grid">
+          <div class="result-item"><div class="rl">Total aportado</div><div class="rv" id="aportado">—</div></div>
+          <div class="result-item"><div class="rl">Intereses ganados</div><div class="rv" id="ganados">—</div></div>
+          <div class="result-item"><div class="rl">Objetivo final</div><div class="rv" id="objetivo">—</div></div>
+          <div class="result-item"><div class="rl">Plazo</div><div class="rv" id="plazo-res">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress chart -->
+    <div id="chart-wrap" style="display:none;background:white;border:1px solid #e2e8f0;border-radius:12px;padding:24px;margin-bottom:24px">
+      <h3 style="font-size:1rem;font-weight:700;margin-bottom:16px">Evolución del ahorro</h3>
+      <canvas id="chart" height="180"></canvas>
+    </div>
+
+    <div class="ad-slot ad-slot-banner">Publicidad</div>
+
+    <div class="info-section">
+      <h2>El poder del interés compuesto</h2>
+      <p>El interés compuesto hace que tus ahorros crezcan cada vez más rápido, porque los intereses generados también generan intereses. Einstein lo llamó "la octava maravilla del mundo".</p>
+      <p>Aunque el rendimiento parezca pequeño (2-4% anual), con el tiempo el efecto es enorme. Cuanto antes empieces a ahorrar, más beneficio obtendrás del interés compuesto.</p>
+      <p>La calculadora asume aportaciones mensuales constantes y un rendimiento fijo anual. En la realidad, los tipos pueden variar.</p>
+    </div>
+  </div>
+</section>
+</Layout>
+
+<script>
+function fmt(n: number) {
+  return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+
+document.getElementById('calcular')?.addEventListener('click', () => {
+  const meta     = parseFloat((document.getElementById('meta')     as HTMLInputElement).value);
+  const inicial  = parseFloat((document.getElementById('inicial')  as HTMLInputElement).value) || 0;
+  const n        = parseInt  ((document.getElementById('plazo-a')  as HTMLInputElement).value);
+  const rAnual   = parseFloat((document.getElementById('interes-a')as HTMLInputElement).value) || 0;
+
+  if (!meta || !n) return alert('Rellena el objetivo y el plazo.');
+
+  const r = rAnual / 100 / 12;
+  let mensual: number;
+
+  if (r === 0) {
+    mensual = (meta - inicial) / n;
+  } else {
+    const factor = (Math.pow(1 + r, n) - 1) / r;
+    mensual = (meta - inicial * Math.pow(1 + r, n)) / factor;
+  }
+
+  if (mensual < 0) {
+    alert('¡Tu ahorro inicial ya supera el objetivo!');
+    return;
+  }
+
+  const totalAportado = inicial + mensual * n;
+  const intereses     = meta - totalAportado;
+
+  (document.getElementById('mensual')   as HTMLElement).textContent = fmt(mensual) + '/mes';
+  (document.getElementById('aportado')  as HTMLElement).textContent = fmt(totalAportado);
+  (document.getElementById('ganados')   as HTMLElement).textContent = fmt(Math.max(0, intereses));
+  (document.getElementById('objetivo')  as HTMLElement).textContent = fmt(meta);
+  (document.getElementById('plazo-res') as HTMLElement).textContent = n + ' meses';
+  document.getElementById('resultado')?.classList.add('show');
+
+  // Simple bar chart
+  const canvas = document.getElementById('chart') as HTMLCanvasElement;
+  const ctx    = canvas.getContext('2d')!;
+  const wrap   = document.getElementById('chart-wrap') as HTMLElement;
+  wrap.style.display = 'block';
+
+  canvas.width  = canvas.offsetWidth;
+  canvas.height = 180;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const steps = Math.min(n, 24);
+  const bw    = (canvas.width - 40) / steps - 3;
+  const maxV  = meta * 1.05;
+
+  for (let i = 1; i <= steps; i++) {
+    const mo = Math.round(n * i / steps);
+    const acum = r === 0
+      ? inicial + mensual * mo
+      : inicial * Math.pow(1+r,mo) + mensual * (Math.pow(1+r,mo)-1)/r;
+
+    const x = 20 + (i-1) * ((canvas.width-40)/steps);
+    const h = (acum / maxV) * 150;
+    const y = 160 - h;
+
+    ctx.fillStyle = '#2563eb';
+    ctx.beginPath();
+    ctx.roundRect(x, y, bw, h, 3);
+    ctx.fill();
+  }
+
+  // Línea objetivo
+  const yMeta = 160 - (meta / maxV) * 150;
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(20, yMeta);
+  ctx.lineTo(canvas.width - 20, yMeta);
+  ctx.stroke();
+
+  ctx.fillStyle = '#f59e0b';
+  ctx.font = '11px Inter, sans-serif';
+  ctx.fillText('Objetivo', canvas.width - 65, yMeta - 6);
+});
+</script>
