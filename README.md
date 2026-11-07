@@ -1,32 +1,37 @@
-# 🧰 ToolboxES — Calculadoras gratuitas en español
+# 🕵️ El Infiltrado
 
-## Herramientas incluidas
-1. Calculadora de Hipoteca
-2. Calculadora de IMC
-3. Generador de Contraseñas
-4. Calculadora de Propinas
-5. Conversor de Unidades
-6. Calculadora de Ahorro
+Juego de fiesta para jugar con amigos **con un solo móvil**.
 
-## Deploy en Vercel (gratis)
-1. Sube este proyecto a GitHub
-2. Importa en vercel.com
-3. Deploy automático — sin configuración extra
+Todos reciben la misma palabra secreta… menos el infiltrado, que no sabe cuál es.
+Por turnos, cada uno dice una palabra relacionada. Después votáis quién es el infiltrado.
+Si le pilláis, aún puede ganar si adivina la palabra.
 
-## Monetización con Google AdSense
-1. Regístrate en google.com/adsense
-2. Cuando te aprueben, copia tu Publisher ID (ca-pub-XXXXXXXXXX)
-3. En src/layouts/Layout.astro descomenta la línea del script de AdSense
-4. Sustituye las divs `.ad-slot` por el código de bloque de anuncio de AdSense
+## Cómo jugar
+1. Añadid los nombres (mínimo 3), elegid categorías y pulsad **Empezar partida**.
+2. Pasaos el móvil: cada uno ve su palabra (o descubre que es el infiltrado).
+3. Ronda de pistas con temporizador.
+4. Votad, revelad y sumad puntos.
 
-## Dominio
-Cambia `https://www.toolboxes.es` en:
-- src/layouts/Layout.astro (línea siteUrl)
-- public/sitemap.xml
-- public/robots.txt
+### Puntos
+- Pilláis al infiltrado y falla la palabra: **+1** para cada jugador normal.
+- Le pilláis pero acierta la palabra: **+2** para el infiltrado.
+- El infiltrado no es descubierto: **+3** para él.
 
-## Desarrollo local
+## Tecnología
+HTML, CSS y JavaScript sin dependencias ni compilación. Funciona sin conexión una vez cargado.
+
+- `index.html`: pantallas del juego
+- `styles.css`: estilos
+- `app.js`: lógica
+- `words.js`: banco de palabras (¡añade las vuestras!)
+
+## Jugar en local
+Abre `index.html` en el navegador, o:
+
+```bash
+npx serve .
 ```
-npm install
-npm run dev
-```
+
+## Publicarlo gratis
+- **GitHub Pages**: Settings → Pages → Branch: `main` / root.
+- **Vercel**: importa el repo; no necesita configuración.

@@ -1,0 +1,10 @@
+{
+  "name": "El Infiltrado",
+  "short_name": "Infiltrado",
+  "lang": "es",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#16112b",
+  "theme_color": "#16112b",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
