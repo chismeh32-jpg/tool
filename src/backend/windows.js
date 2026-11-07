@@ -3,6 +3,7 @@ const { runPowerShell, runProcess, ps } = require("./powershell");
 const CLEANUP = require("../data/cleanup");
 const TWEAKS = require("../data/tweaks");
 const APPS = require("../data/apps");
+const REPAIRS = require("../data/repairs");
 
 
 function splitHive(fullPath) {
@@ -116,6 +117,7 @@ async function cleanupRun(ids, log, onItem) {
   for (const it of CLEANUP.filter((c) => ids.includes(c.id))) {
     onItem && onItem(it.id, { status: "running" });
     log(`▶ ${it.name}…`);
+    if (it.exe) { results.push(await cleanupRunExe(it, log, onItem)); continue; }
     const body = it.cleanScript
       ? `& { ${it.cleanScript} } | ForEach-Object { [Console]::Out.WriteLine("$_") }; $code = $LASTEXITCODE; $r = @{ removed = $null; skipped = $null }`
       : `$r = TB-Clear @(${it.paths.map(ps).join(", ")}); $code = 0`;
@@ -133,6 +135,73 @@ async function cleanupRun(ids, log, onItem) {
     onItem && onItem(it.id, { status: r.ok ? "done" : "error", ...r });
   }
   return results;
+}
+
+/** Limpieza con un programa de Windows (DISM): muestra el porcentaje en directo. */
+async function cleanupRunExe(it, log, onItem) {
+  const free = async () => ((await runPowerShell("Emit @{ f = TB-Free }")).json[0] || {}).f || 0;
+  const f0 = await free();
+  const { code } = await runProcess(it.exe, it.args, {
+    onLine: (l) => log("   " + l),
+    onProgress: (pct) => onItem && onItem(it.id, { status: "running", percent: pct }),
+  });
+  const f1 = await free();
+  const ok = (it.okCodes || [0]).includes(code);
+  const r = { id: it.id, freed: Math.max(0, f1 - f0), removed: null, skipped: null, code, ok };
+  if (!ok) log(`   ✖ ${it.exe} terminó con el código 0x${code.toString(16).toUpperCase()}.`);
+  onItem && onItem(it.id, { status: ok ? "done" : "error", ...r });
+  return r;
+}
+
+// ---------------------------------------------------------------- Reparaciones
+/**
+ * Ejecuta una reparación paso a paso.
+ * onProgress({ step, total, label, percent }) para la barra; devuelve
+ * { ok, reboot, warnings: [], failed: label|null }.
+ */
+async function runRepair(id, log, onProgress) {
+  const rep = REPAIRS.find((r) => r.id === id);
+  const result = { ok: true, reboot: !!rep.rebootRequired, warnings: [], failed: null };
+  log(`▶ ${rep.name}`);
+  for (let i = 0; i < rep.steps.length; i++) {
+    const step = rep.steps[i];
+    if (result.failed && !step.always) continue;
+    const progress = (pct) => onProgress && onProgress({ step: i + 1, total: rep.steps.length, label: step.label, percent: pct });
+    progress(null);
+    log(`   Paso ${i + 1}/${rep.steps.length}: ${step.label}…`);
+    let ok = true, reboot = false, message = "";
+    try {
+      if (step.exe) {
+        const { code } = await runProcess(step.exe, step.args, {
+          utf16: step.utf16, onLine: (l) => log("      " + l), onProgress: progress,
+        });
+        reboot = (step.rebootCodes || []).includes(code);
+        ok = reboot || (step.okCodes || [0]).includes(code);
+        if (!ok) message = `${step.failText || "El paso no terminó bien."} (código 0x${code.toString(16).toUpperCase()})`;
+      } else {
+        const { json } = await runPowerShell(`try {\n${step.ps}\nEmit @{ ok = $true } } catch { Emit @{ ok = $false; message = $_.Exception.Message } }`,
+          { onLine: (l) => log("      " + l) });
+        json.filter((j) => j.warn).forEach((j) => { result.warnings.push(j.warn); log("      ⚠ " + j.warn); });
+        const end = json.find((j) => "ok" in j) || { ok: false, message: "Sin respuesta de PowerShell" };
+        ok = end.ok; message = end.message || "";
+      }
+    } catch (e) {
+      ok = false; message = e.code === "ENOENT" ? `No se encontró ${step.exe} en este PC.` : e.message;
+    }
+    if (reboot) result.reboot = true;
+    if (ok) log("   ✔ Hecho.");
+    else if (step.warnOnFail) { result.warnings.push(`${step.label}: ${message}`); log("   ⚠ " + message); }
+    else { result.ok = false; result.failed = step.label; result.message = message; log("   ✖ " + message); }
+    progress(100);
+  }
+  log(result.ok ? `✔ ${rep.name}: terminado${result.warnings.length ? " con avisos" : ""}.` : `✖ ${rep.name}: no se pudo completar.`);
+  return result;
+}
+
+async function reboot(log) {
+  log("Reiniciando el equipo en 10 segundos…");
+  await runProcess("shutdown.exe", ["/r", "/t", "10", "/c", "ToolBox: reinicio para terminar los cambios."]);
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------- Ajustes
@@ -283,4 +352,5 @@ module.exports = {
   cleanupScan, cleanupRun,
   tweaksStatus, tweakSet,
   wingetAvailable, appsInstalled, appsInstall, appsUpgradeAll,
+  runRepair, reboot,
 };

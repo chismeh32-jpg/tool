@@ -5,6 +5,7 @@ const backend = require("./backend");
 const CLEANUP = require("./data/cleanup");
 const TWEAKS = require("./data/tweaks");
 const APPS = require("./data/apps");
+const REPAIRS = require("./data/repairs");
 
 let win = null;
 let busy = false;
@@ -90,10 +91,22 @@ const publicCleanup = CLEANUP.map(({ id, name, icon, summary, details, after, ri
 const publicTweaks = TWEAKS.map(({ id, category, name, summary, details, risk, restart, admin }) =>
   ({ id, category, name, summary, details, risk, restart, admin: !!admin || false }));
 
-ipcMain.handle("catalog", () => ({ cleanup: publicCleanup, tweaks: publicTweaks, apps: APPS, mock: backend.isMock }));
+const publicRepairs = REPAIRS.map(({ steps, ...rest }) => ({ ...rest, steps: steps.map((s) => s.label) }));
+
+ipcMain.handle("catalog", () => ({ cleanup: publicCleanup, tweaks: publicTweaks, apps: APPS, repairs: publicRepairs, mock: backend.isMock }));
 ipcMain.handle("system:info", () => backend.systemInfo().catch((e) => ({ error: e.message })));
 ipcMain.handle("system:restorePoint", (_e, opts = {}) =>
   exclusive(() => backend.createRestorePoint(log, { allowEnable: !!opts.allowEnable })));
+ipcMain.handle("system:reboot", () => exclusive(() => backend.reboot(log)));
+ipcMain.handle("repairs:run", (_e, id, opts = {}) => exclusive(async () => {
+  const [rid] = validIds([id], REPAIRS);
+  if (!rid) return { error: "unknown" };
+  if (opts.restorePoint) {
+    const rp = await backend.createRestorePoint(log, { allowEnable: !!opts.allowEnableRestore });
+    if (!rp.ok) return { aborted: true, restorePoint: rp };
+  }
+  return backend.runRepair(rid, log, (p) => send("toolbox:progress", { kind: "repair", id: rid, data: p }));
+}));
 ipcMain.handle("system:openLogs", () => shell.openPath(path.dirname(logPath())));
 ipcMain.handle("system:restartExplorer", () => exclusive(() => backend.restartExplorer(log)));
 

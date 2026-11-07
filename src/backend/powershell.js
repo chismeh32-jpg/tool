@@ -79,6 +79,7 @@ function TB-Clear([string[]]$Paths) {
   }
   return @{ removed = $ok; skipped = $skip }
 }
+function TB-Warn([string]$Message) { Emit @{ warn = $Message } }
 function TB-Free { return [int64](Get-PSDrive -Name $env:SystemDrive.TrimEnd(':')).Free }
 
 # --- Registro -------------------------------------------------------------
@@ -175,31 +176,65 @@ function runPowerShell(script, opts = {}) {
 }
 
 /** Ejecuta un programa (p. ej. winget) con argumentos fijos y va pasando su salida línea a línea. */
+/** Si una línea indica progreso («[===  45.0% ]», «Verificación 45 % completada»), devuelve el porcentaje. */
+function parsePercent(line) {
+  const m = /(\d{1,3}(?:[.,]\d+)?)\s*%/.exec(line);
+  if (!m) return null;
+  const n = parseFloat(m[1].replace(",", "."));
+  return n >= 0 && n <= 100 ? n : null;
+}
+
+/**
+ * Ejecuta un programa (winget, DISM, sfc…) con argumentos fijos y va pasando su salida línea a línea.
+ * - opts.utf16: el programa escribe en UTF-16 (p. ej. sfc.exe) en vez de UTF-8.
+ * - opts.onProgress(pct): se llama con los porcentajes; esas líneas no se mandan a onLine.
+ * - opts.timeoutMs: tiempo máximo; después se cierra el proceso (y sus hijos).
+ */
 function runProcess(command, args, opts = {}) {
+  const { StringDecoder } = require("string_decoder");
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { windowsHide: true });
-    let buffer = "";
     const output = [];
-    const onData = (chunk) => {
-      buffer += chunk.toString("utf8");
-      const parts = buffer.split(/\r?\n|\r/);
-      buffer = parts.pop();
-      for (const raw of parts) {
-        const line = raw.trim();
-        // winget dibuja barras de progreso y "spinners": solo nos quedamos con texto útil
-        if (!line || !/[\p{L}\d]{2,}/u.test(line) || /^[\s█▒░\-\\|/]+$/.test(line)) continue;
-        output.push(line);
-        opts.onLine && opts.onLine(line);
-      }
+    const handle = (raw) => {
+      const line = raw.replace(/\u0000/g, "").trim();
+      // winget dibuja barras de progreso y "spinners": solo nos quedamos con texto útil
+      if (!line || !/[\p{L}\d]{2,}/u.test(line) || /^[\s█▒░\-\\|/]+$/.test(line)) return;
+      const pct = opts.onProgress ? parsePercent(line) : null;
+      if (pct !== null) { opts.onProgress(pct); return; }
+      output.push(line);
+      opts.onLine && opts.onLine(line);
     };
-    child.stdout.on("data", onData);
-    child.stderr.on("data", onData);
-    child.on("error", reject);
+    // Un lector por flujo: así una letra con tilde partida entre dos trozos no se estropea
+    const reader = () => {
+      const dec = new StringDecoder(opts.utf16 ? "utf16le" : "utf8");
+      let buffer = "";
+      return {
+        push(chunk) {
+          buffer += dec.write(chunk);
+          const parts = buffer.split(/\r?\n|\r/);
+          buffer = parts.pop();
+          parts.forEach(handle);
+        },
+        end() { buffer += dec.end(); if (buffer) handle(buffer); buffer = ""; },
+      };
+    };
+    const out = reader(), err = reader();
+    child.stdout.on("data", (c) => out.push(c));
+    child.stderr.on("data", (c) => err.push(c));
+
+    let timedOut = false;
+    const timer = opts.timeoutMs ? setTimeout(() => {
+      timedOut = true;
+      spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true }).on("error", () => child.kill());
+    }, opts.timeoutMs) : null;
+
+    child.on("error", (e) => { clearTimeout(timer); reject(e); });
     child.on("close", (code) => {
-      if (buffer.trim()) output.push(buffer.trim());
-      resolve({ code: code === null ? -1 : code >>> 0, output });
+      clearTimeout(timer);
+      out.end(); err.end();
+      resolve({ code: code === null ? -1 : code >>> 0, output, timedOut });
     });
   });
 }
 
-module.exports = { runPowerShell, runProcess, ps };
+module.exports = { runPowerShell, runProcess, parsePercent, ps };

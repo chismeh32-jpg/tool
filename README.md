@@ -10,6 +10,7 @@ antes de hacer nada te explica **qué hace**, **qué notarás después** y te pi
 | 🏠 **Inicio** | Espacio libre en disco, datos de tu PC y botón para crear un punto de restauración. |
 | 🧹 **Limpieza** | Analiza (sin borrar) y luego limpia: temporales, descargas de Windows Update, caché de Optimización de distribución, miniaturas, informes de errores, papelera y **actualizaciones antiguas de Windows** (DISM). |
 | 📦 **Aplicaciones** | Instala varios programas de golpe con `winget` (el instalador oficial de Microsoft) y actualiza todos los que tengas. |
+| 🩺 **Reparar** | Arreglos oficiales de Windows explicados por síntoma, con progreso en directo. |
 | 🎛️ **Ajustes** | Interruptores para quitar anuncios, mostrar extensiones, menú clásico, modo oscuro, ratón sin aceleración… **Todos se pueden deshacer.** |
 
 Cada limpieza viene marcada como **Seguro** o **Precaución**, y antes de los cambios importantes se ofrece un
@@ -28,6 +29,14 @@ Cada limpieza viene marcada como **Seguro** o **Precaución**, y antes de los ca
 > los necesita para limpiar carpetas del sistema y cambiar ajustes.
 
 ## Novedades
+
+**0.3.0 – Reparar**
+- Nueva sección **🩺 Reparar**, organizada por lo que te pasa: Windows va raro (DISM + SFC + revisión del disco),
+  Windows Update atascado, Internet va mal (arreglo rápido y reinicio completo de red), la impresora no imprime,
+  la hora está mal y los programas no se instalan (reparar winget).
+- Cada reparación enseña los pasos antes de empezar, una barra de progreso con el porcentaje real y un resumen al
+  terminar, con botón «Reiniciar ahora» cuando hace falta.
+- La limpieza de «Actualizaciones antiguas de Windows» también muestra su porcentaje en directo.
 
 **0.2.0 – Fiabilidad**
 - Los resultados de winget se interpretan bien: «instalada, reinicia para terminar», «ya estaba instalada»,

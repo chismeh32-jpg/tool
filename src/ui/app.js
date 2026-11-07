@@ -23,6 +23,7 @@
     appQuery: "",
     tweakStatus: {},
     tweakPending: new Set(),
+    repairState: {},   // id -> { running, step, total, label, percent, result }
   };
 
   // ------------------------------------------------------------ Utilidades
@@ -231,7 +232,7 @@
       else if (it.id in state.sizes) size.append(el("span", "", state.sizes[it.id] === null ? "?" : formatBytes(state.sizes[it.id])));
       else size.append(el("span", "muted", state.scanning ? "Analizando…" : "—"));
       if (st) {
-        const label = { running: "Limpiando…", done: "✔ Liberado", error: "✖ Error" }[st.status];
+        const label = { running: st.percent != null ? `Limpiando… ${Math.round(st.percent)} %` : "Limpiando…", done: "✔ Liberado", error: "✖ Error" }[st.status];
         size.append(el("div", `item-state ${st.status}`, label));
       } else if (it.id in state.sizes && state.sizes[it.id] === null) {
         size.append(el("div", "muted small", "se mide al limpiar"));
@@ -329,6 +330,10 @@
   api.onProgress(({ kind, id, data }) => {
     if (kind === "scan") { state.sizes[id] = data; renderCleanup(); }
     if (kind === "clean") { state.cleanState[id] = data; renderCleanup(); }
+    if (kind === "repair") {
+      state.repairState[id] = { ...(state.repairState[id] || {}), running: true, ...data };
+      updateRepairProgress(id);
+    }
     if (kind === "install") {
       state.appState[id] = data;
       if (["done", "already", "uptodate", "reboot", "userScope"].includes(data.status)) state.installed[id] = true;
@@ -434,6 +439,122 @@
       : "Algunos programas no se pudieron actualizar. Mira la Actividad.", r.ok ? "ok" : "error");
   });
 
+  // ------------------------------------------------------------ Reparar
+  function offerReboot(text) {
+    toast(text, "ok", {
+      label: "Reiniciar ahora",
+      run: async () => {
+        const body = el("p", "", "Guarda lo que tengas abierto. El PC se reiniciará en 10 segundos.");
+        if (await confirmDialog({ title: "¿Reiniciar el PC ahora?", body, ok: "Reiniciar" })) api.reboot();
+      },
+    });
+  }
+
+  function renderRepairs() {
+    const list = $("#repair-list");
+    list.innerHTML = "";
+    for (const r of state.catalog.repairs) {
+      const st = state.repairState[r.id] || {};
+      const card = el("div", "repair" + (st.running ? " running" : ""));
+      card.id = `repair-${r.id}`;
+      const main = el("div");
+      main.append(el("h3", "", r.problem));
+      const fix = el("p", "fix");
+      fix.append(el("strong", "", r.name + ". "), r.summary);
+      main.append(fix);
+      const badges = el("div", "badges");
+      badges.append(el("span", `badge ${r.risk === "seguro" ? "ok" : "warn"}`, r.risk === "seguro" ? "Seguro" : "Precaución"));
+      badges.append(el("span", "badge neutral", "⏱ " + r.duration));
+      if (r.internet) badges.append(el("span", "badge neutral", "Necesita Internet"));
+      if (r.rebootRequired) badges.append(el("span", "badge neutral", "Hay que reiniciar"));
+      main.append(badges);
+      const more = el("div", "item-more hidden");
+      const p1 = el("p"); p1.innerHTML = "<strong>Qué hace:</strong> "; p1.append(r.details);
+      const ol = el("ol", "steps");
+      r.steps.forEach((s) => ol.append(el("li", "", s)));
+      const p2 = el("p"); p2.innerHTML = "<strong>Qué notarás después:</strong> "; p2.append(r.after);
+      more.append(p1, ol, p2);
+      const toggle = el("button", "link-btn", "Más información");
+      toggle.addEventListener("click", () => {
+        more.classList.toggle("hidden");
+        toggle.textContent = more.classList.contains("hidden") ? "Más información" : "Menos información";
+      });
+      main.append(more, toggle);
+
+      const btn = el("button", "btn primary", st.running ? "Reparando…" : "Reparar");
+      btn.disabled = state.busy || !!st.running;
+      btn.dataset.repairBtn = r.id;
+      btn.addEventListener("click", () => startRepair(r));
+      card.append(el("div", "repair-ico", r.icon), main, btn);
+
+      if (st.running) {
+        const prog = el("div", "repair-progress");
+        prog.id = `repair-progress-${r.id}`;
+        const meter = el("div", "meter");
+        meter.append(el("div", "meter-fill"));
+        prog.append(el("div", "small repair-step"), meter);
+        card.append(prog);
+      } else if (st.result) {
+        card.append(renderRepairResult(st.result));
+      }
+      list.append(card);
+      if (st.running) updateRepairProgress(r.id);
+    }
+  }
+
+  function updateRepairProgress(id) {
+    const st = state.repairState[id];
+    const box = document.getElementById(`repair-progress-${id}`);
+    if (!box || !st) { renderRepairs(); return; }
+    const overall = st.total ? ((st.step - 1) + (st.percent != null ? st.percent / 100 : 0)) / st.total : 0;
+    box.querySelector(".repair-step").textContent = st.label
+      ? `Paso ${st.step} de ${st.total}: ${st.label}${st.percent != null && st.percent < 100 ? ` — ${Math.round(st.percent)} %` : "…"}`
+      : "Empezando…";
+    const meter = box.querySelector(".meter");
+    meter.classList.toggle("indeterminate", st.percent == null);
+    box.querySelector(".meter-fill").style.width = Math.round(overall * 100) + "%";
+  }
+
+  function renderRepairResult(res) {
+    const kind = !res.ok ? "bad" : res.warnings && res.warnings.length ? "warn" : "ok";
+    const box = el("div", `repair-result ${kind}`);
+    const title = !res.ok ? `✖ No se pudo completar: «${res.failed}». ${res.message || ""}`
+      : res.warnings.length ? "✔ Terminado, con algún aviso:" : "✔ Terminado sin problemas.";
+    box.append(el("div", "", title));
+    if (res.ok && res.warnings.length) {
+      const ul = el("ul");
+      res.warnings.forEach((w) => ul.append(el("li", "", w)));
+      box.append(ul);
+    }
+    if (res.reboot) box.append(el("div", "small", "Reinicia el PC para que el arreglo surta efecto."));
+    return box;
+  }
+
+  async function startRepair(r) {
+    const body = el("div");
+    body.append(el("p", "", r.summary));
+    const ol = el("ol", "steps");
+    r.steps.forEach((s) => ol.append(el("li", "", s)));
+    body.append(el("p", "", "Pasos:"), ol);
+    const after = el("p"); after.innerHTML = "<strong>Qué notarás después:</strong> "; after.append(r.after);
+    body.append(after);
+    const rp = restorePointOption(r.risk !== "seguro");
+    if (r.risk !== "seguro") body.append(rp.node);
+    body.append(el("p", "muted small", `⏱ Tarda ${r.duration}. Puedes seguir usando el PC mientras tanto.`));
+    if (!(await confirmDialog({ title: `¿${r.name}?`, body, ok: "Empezar" }))) return;
+
+    state.repairState[r.id] = { running: true };
+    renderRepairs();
+    $("#activity").classList.remove("hidden");
+    const res = await withRestorePoint((o) => api.runRepair(r.id, o), { restorePoint: r.risk !== "seguro" && rp.value }, "reparar");
+    if (res === null || busyGuard(res)) { state.repairState[r.id] = {}; renderRepairs(); return; }
+    state.repairState[r.id] = { running: false, result: res.error ? { ok: false, failed: "inicio", message: res.error, warnings: [] } : res };
+    renderRepairs();
+    if (res.ok && res.reboot) offerReboot(`${r.name}: listo. Reinicia el PC para terminar.`);
+    else if (res.ok) toast(`${r.name}: listo.`, "ok");
+    else toast(`${r.name}: no se pudo completar. Mira el resultado y la Actividad.`, "error");
+  }
+
   // ------------------------------------------------------------ Ajustes
   const RESTART_TEXT = { explorer: "Reinicia el Explorador", logout: "Al volver a iniciar sesión" };
 
@@ -512,6 +633,9 @@
     $("#install-btn").disabled = state.busy || !state.appSel.size || state.winget === false;
     $("#upgrade-btn").disabled = state.busy || state.winget === false;
     $("#restore-btn").disabled = state.busy;
+    document.querySelectorAll("[data-repair-btn]").forEach((b) => {
+      b.disabled = state.busy || !!(state.repairState[b.dataset.repairBtn] || {}).running;
+    });
   }
 
   // ------------------------------------------------------------ Arranque
@@ -522,6 +646,7 @@
     renderCleanup();
     renderCats();
     renderApps();
+    renderRepairs();
     refreshButtons();
     loadSystem();
   })();

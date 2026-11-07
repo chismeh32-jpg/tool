@@ -3,6 +3,7 @@
 const CLEANUP = require("../data/cleanup");
 const TWEAKS = require("../data/tweaks");
 const APPS = require("../data/apps");
+const REPAIRS = require("../data/repairs");
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const GB = 1024 ** 3;
@@ -108,7 +109,30 @@ async function appsInstall(ids, log, onItem) {
 
 async function appsUpgradeAll(log) { log("▶ Buscando actualizaciones (demo)…"); await wait(1500); log("✔ Todo al día."); return { ok: true }; }
 
+async function runRepair(id, log, onProgress) {
+  const rep = REPAIRS.find((r) => r.id === id);
+  const result = { ok: true, reboot: !!rep.rebootRequired, warnings: [], failed: null };
+  log(`▶ ${rep.name}`);
+  for (let i = 0; i < rep.steps.length; i++) {
+    const step = rep.steps[i];
+    log(`   Paso ${i + 1}/${rep.steps.length}: ${step.label}…`);
+    const slow = rep.id === "system-files";
+    for (let p = 0; p <= 100; p += slow ? 10 : 50) {
+      onProgress({ step: i + 1, total: rep.steps.length, label: step.label, percent: step.exe ? p : null });
+      await wait(slow ? 250 : 200);
+    }
+    log("   ✔ Hecho.");
+  }
+  if (rep.id === "system-files") { result.reboot = true; result.warnings.push("Revisando los archivos del sistema (SFC): se repararon algunos archivos (demo)."); }
+  if (rep.rebootSuggested) result.reboot = true;
+  log(`✔ ${rep.name}: terminado.`);
+  return result;
+}
+
+async function reboot(log) { log("Reinicio solicitado (demo: no se reinicia nada)."); return { ok: true }; }
+
 module.exports = {
+  runRepair, reboot,
   systemInfo, restoreStatus, createRestorePoint, restartExplorer,
   cleanupScan, cleanupRun,
   tweaksStatus, tweakSet,

@@ -115,6 +115,8 @@ module.exports = [
     admin: true,
     slow: true,
     scanScript: null, // medir WinSxS de verdad tarda minutos; se mide el espacio liberado al terminar
-    cleanScript: "Dism.exe /Online /Cleanup-Image /StartComponentCleanup /NoRestart",
+    exe: "Dism.exe", // se ejecuta directamente para poder enseñar el porcentaje
+    args: ["/Online", "/Cleanup-Image", "/StartComponentCleanup", "/English"],
+    okCodes: [0, 3010],
   },
 ];

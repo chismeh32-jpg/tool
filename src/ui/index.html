@@ -16,6 +16,7 @@
       </div>
       <button class="nav-item active" data-page="home"><span class="nav-ico">🏠</span>Inicio</button>
       <button class="nav-item" data-page="cleanup"><span class="nav-ico">🧹</span>Limpieza</button>
+      <button class="nav-item" data-page="repairs"><span class="nav-ico">🩺</span>Reparar</button>
       <button class="nav-item" data-page="apps"><span class="nav-ico">📦</span>Aplicaciones</button>
       <button class="nav-item" data-page="tweaks"><span class="nav-ico">🎛️</span>Ajustes</button>
       <div class="sidebar-spacer"></div>
@@ -47,11 +48,16 @@
         </div>
 
         <h2 class="section-title">¿Qué quieres hacer?</h2>
-        <div class="grid-3">
+        <div class="grid-actions">
           <button class="action-card" data-goto="cleanup" data-autoscan="1">
             <span class="action-ico">🧹</span>
             <strong>Liberar espacio</strong>
             <span class="muted">Busca archivos temporales y restos de actualizaciones que puedes borrar sin miedo.</span>
+          </button>
+          <button class="action-card" data-goto="repairs">
+            <span class="action-ico">🩺</span>
+            <strong>Arreglar un problema</strong>
+            <span class="muted">¿Internet va mal, la impresora no imprime o Windows da errores? Elige lo que te pasa.</span>
           </button>
           <button class="action-card" data-goto="apps">
             <span class="action-ico">📦</span>
@@ -92,6 +98,16 @@
           <span id="cleanup-total">Nada seleccionado</span>
           <button class="btn primary" id="clean-btn" disabled>Limpiar</button>
         </div>
+      </section>
+
+      <!-- REPARAR -->
+      <section class="page" id="page-repairs">
+        <header class="page-head">
+          <h1>🩺 Reparar</h1>
+          <p class="lead">Elige <strong>lo que te pasa</strong> y ToolBox aplica la solución oficial de Windows paso a paso.
+            Antes de empezar verás exactamente qué va a hacer.</p>
+        </header>
+        <div class="list" id="repair-list"></div>
       </section>
 
       <!-- APLICACIONES -->

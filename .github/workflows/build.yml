@@ -30,3 +30,15 @@ jobs:
           name: ToolBox-Windows
           path: dist/*.exe
           if-no-files-found: error
+
+  reparaciones:
+    # Prueba real de las reparaciones (la de «Revisar y reparar Windows» tarda ~20 min)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Probar reparaciones en Windows real
+        run: node test/windows-repairs.js
