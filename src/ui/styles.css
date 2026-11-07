@@ -220,7 +220,8 @@ input[type=checkbox].check { width: 18px; height: 18px; accent-color: var(--acce
   border-radius: var(--radius); box-shadow: 0 20px 50px rgba(0,0,0,.3);
 }
 .activity-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
-.activity-head .icon-btn { margin-left: auto; }
+.activity-head .activity-logs { margin-left: auto; }
+.app-note { margin-top: 4px; color: var(--warn); }
 .activity-log {
   flex: 1; margin: 0; padding: 12px 14px; overflow: auto; font: 12.5px/1.55 "Cascadia Mono", Consolas, monospace;
   white-space: pre-wrap; color: var(--text);

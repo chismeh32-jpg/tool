@@ -11,7 +11,8 @@ const on = (channel) => (cb) => {
 contextBridge.exposeInMainWorld("toolbox", {
   catalog: () => ipcRenderer.invoke("catalog"),
   systemInfo: () => ipcRenderer.invoke("system:info"),
-  createRestorePoint: () => ipcRenderer.invoke("system:restorePoint"),
+  createRestorePoint: (opts) => ipcRenderer.invoke("system:restorePoint", opts),
+  openLogs: () => ipcRenderer.invoke("system:openLogs"),
   restartExplorer: () => ipcRenderer.invoke("system:restartExplorer"),
   cleanupScan: (ids) => ipcRenderer.invoke("cleanup:scan", ids),
   cleanupRun: (ids, opts) => ipcRenderer.invoke("cleanup:run", ids, opts),

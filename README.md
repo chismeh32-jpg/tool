@@ -27,6 +27,20 @@ Cada limpieza viene marcada como **Seguro** o **Precaución**, y antes de los ca
 > Pulsa **Más información → Ejecutar de todas formas**. ToolBox pide permisos de administrador porque
 > los necesita para limpiar carpetas del sistema y cambiar ajustes.
 
+## Novedades
+
+**0.2.0 – Fiabilidad**
+- Los resultados de winget se interpretan bien: «instalada, reinicia para terminar», «ya estaba instalada»,
+  «instalada solo para tu usuario» y errores con su motivo, en vez de marcarlo todo como error.
+- Se instala siempre desde el origen `winget` (evita que salte la Microsoft Store) y «Actualizar todas mis apps»
+  incluye también las apps cuya versión winget no reconoce.
+- La etiqueta «Instalada» es fiable: se usa `winget export` (identificadores exactos) en vez de buscar texto.
+- Catálogo revisado: fuera Spotify (no se deja instalar como administrador), Python 3.14, Java 21 (Temurin),
+  GIMP y File Converter. Cada identificador se comprueba en un Windows real en cada cambio.
+- Si «Restaurar sistema» está apagado, ToolBox pregunta antes de activarlo (reserva espacio en disco).
+- El registro de actividad se guarda también en un archivo (`%APPDATA%\ToolBox\logs`) → botón «Abrir registros».
+- El análisis de limpieza es mucho más rápido: mide cada cosa en paralelo y con un tiempo máximo.
+
 ## Cómo está hecha
 
 - **Electron**: la interfaz es HTML/CSS/JavaScript (`src/ui/`).

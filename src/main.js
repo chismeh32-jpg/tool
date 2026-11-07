@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const path = require("path");
+const fs = require("fs");
 const backend = require("./backend");
 const CLEANUP = require("./data/cleanup");
 const TWEAKS = require("./data/tweaks");
@@ -42,7 +43,22 @@ function createWindow() {
 
 // ------------------------------------------------------------------ Utilidades IPC
 const send = (channel, payload) => { if (win && !win.isDestroyed()) win.webContents.send(channel, payload); };
-const log = (text) => send("toolbox:log", { text, time: Date.now() });
+// El registro se muestra en «Actividad» y además se guarda en un archivo por día
+// (%APPDATA%\ToolBox\logs) para poder pedir ayuda si algo falla.
+let logFile = null;
+function logPath() {
+  if (!logFile) {
+    const dir = app.getPath("logs");
+    fs.mkdirSync(dir, { recursive: true });
+    logFile = path.join(dir, `toolbox-${new Date().toISOString().slice(0, 10)}.log`);
+  }
+  return logFile;
+}
+const log = (text) => {
+  const time = Date.now();
+  send("toolbox:log", { text, time });
+  try { fs.appendFileSync(logPath(), `[${new Date(time).toISOString()}] ${text}\n`, "utf8"); } catch { /* sin disco: solo pantalla */ }
+};
 const progress = (kind) => (id, data) => send("toolbox:progress", { kind, id, data });
 
 /** Solo se aceptan identificadores que existen en nuestros catálogos. */
@@ -76,7 +92,9 @@ const publicTweaks = TWEAKS.map(({ id, category, name, summary, details, risk, r
 
 ipcMain.handle("catalog", () => ({ cleanup: publicCleanup, tweaks: publicTweaks, apps: APPS, mock: backend.isMock }));
 ipcMain.handle("system:info", () => backend.systemInfo().catch((e) => ({ error: e.message })));
-ipcMain.handle("system:restorePoint", () => exclusive(() => backend.createRestorePoint(log)));
+ipcMain.handle("system:restorePoint", (_e, opts = {}) =>
+  exclusive(() => backend.createRestorePoint(log, { allowEnable: !!opts.allowEnable })));
+ipcMain.handle("system:openLogs", () => shell.openPath(path.dirname(logPath())));
 ipcMain.handle("system:restartExplorer", () => exclusive(() => backend.restartExplorer(log)));
 
 ipcMain.handle("cleanup:scan", (_e, ids) =>
@@ -84,8 +102,8 @@ ipcMain.handle("cleanup:scan", (_e, ids) =>
 ipcMain.handle("cleanup:run", (_e, ids, opts = {}) => exclusive(async () => {
   const list = validIds(ids, CLEANUP);
   if (opts.restorePoint) {
-    const rp = await backend.createRestorePoint(log);
-    if (!rp.ok && !opts.continueWithoutRestorePoint) return { aborted: true, restorePoint: rp };
+    const rp = await backend.createRestorePoint(log, { allowEnable: !!opts.allowEnableRestore });
+    if (!rp.ok) return { aborted: true, restorePoint: rp };
   }
   return { results: await backend.cleanupRun(list, log, progress("clean")) };
 }));
@@ -94,8 +112,8 @@ ipcMain.handle("tweaks:status", () => backend.tweaksStatus().catch((e) => ({ err
 ipcMain.handle("tweaks:set", (_e, ids, enable, opts = {}) => exclusive(async () => {
   const list = validIds(ids, TWEAKS);
   if (opts.restorePoint) {
-    const rp = await backend.createRestorePoint(log);
-    if (!rp.ok && !opts.continueWithoutRestorePoint) return { aborted: true, restorePoint: rp };
+    const rp = await backend.createRestorePoint(log, { allowEnable: !!opts.allowEnableRestore });
+    if (!rp.ok) return { aborted: true, restorePoint: rp };
   }
   const results = [];
   for (const id of list) results.push({ id, ...(await backend.tweakSet(id, !!enable, log)) });
@@ -110,5 +128,8 @@ ipcMain.handle("apps:install", (_e, ids) =>
   exclusive(async () => ({ results: await backend.appsInstall(validIds(ids, APPS), log, progress("install")) })));
 ipcMain.handle("apps:upgradeAll", () => exclusive(() => backend.appsUpgradeAll(log)));
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  log(`ToolBox ${app.getVersion()} iniciado${backend.isMock ? " (modo demostración)" : ""}.`);
+  createWindow();
+});
 app.on("window-all-closed", () => app.quit());

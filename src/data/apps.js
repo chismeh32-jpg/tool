@@ -1,5 +1,8 @@
 // Catálogo de aplicaciones que ToolBox puede instalar con winget.
 // "id" es el identificador oficial del paquete en winget (https://winget.run).
+// Solo apps que se instalan para todo el equipo: ToolBox se ejecuta como administrador y
+// algunos instaladores «por usuario» (p. ej. Spotify) se niegan a funcionar así.
+// La prueba de Windows en GitHub Actions comprueba que cada id existe en winget.
 module.exports = [
   // Navegadores
   { id: "Google.Chrome", name: "Google Chrome", category: "Navegadores", summary: "El navegador más usado." },
@@ -21,7 +24,8 @@ module.exports = [
 
   // Multimedia
   { id: "VideoLAN.VLC", name: "VLC", category: "Multimedia", summary: "Reproduce cualquier vídeo o audio." },
-  { id: "Spotify.Spotify", name: "Spotify", category: "Multimedia", summary: "Música y podcasts." },
+  { id: "GIMP.GIMP.3", name: "GIMP", category: "Multimedia", summary: "Editor de fotos avanzado y gratuito." },
+  { id: "AdrienAllard.FileConverter", name: "File Converter", category: "Multimedia", summary: "Convierte fotos, vídeos y audio con clic derecho." },
   { id: "OBSProject.OBSStudio", name: "OBS Studio", category: "Multimedia", summary: "Graba la pantalla o haz directos." },
   { id: "Audacity.Audacity", name: "Audacity", category: "Multimedia", summary: "Editor de audio sencillo y gratuito." },
   { id: "HandBrake.HandBrake", name: "HandBrake", category: "Multimedia", summary: "Convierte y comprime vídeos." },
@@ -49,11 +53,11 @@ module.exports = [
   { id: "Microsoft.VisualStudioCode", name: "Visual Studio Code", category: "Programación", summary: "Editor de código." },
   { id: "Git.Git", name: "Git", category: "Programación", summary: "Control de versiones." },
   { id: "OpenJS.NodeJS.LTS", name: "Node.js LTS", category: "Programación", summary: "Ejecuta JavaScript fuera del navegador." },
-  { id: "Python.Python.3.12", name: "Python 3.12", category: "Programación", summary: "Lenguaje de programación." },
+  { id: "Python.Python.3.14", name: "Python 3.14", category: "Programación", summary: "Lenguaje de programación." },
   { id: "Microsoft.WindowsTerminal", name: "Windows Terminal", category: "Programación", summary: "Terminal moderna con pestañas." },
 
   // Componentes
   { id: "Microsoft.VCRedist.2015+.x64", name: "Visual C++ 2015-2022", category: "Componentes", summary: "Lo piden muchos juegos y programas." },
   { id: "Microsoft.DotNet.DesktopRuntime.8", name: ".NET Desktop Runtime 8", category: "Componentes", summary: "Necesario para muchas apps modernas." },
-  { id: "Oracle.JavaRuntimeEnvironment", name: "Java", category: "Componentes", summary: "Necesario para Minecraft Java (mods) y otras apps." },
+  { id: "EclipseAdoptium.Temurin.21.JRE", name: "Java 21 (Temurin)", category: "Componentes", summary: "Necesario para Minecraft Java (mods) y otras apps." },
 ];

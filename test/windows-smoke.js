@@ -15,11 +15,12 @@ const log = (t) => console.log("   " + t);
   assert.ok(info.os, "debe leer el nombre de Windows");
 
   console.log("2) Análisis de limpieza (no borra nada)");
+  const t0 = Date.now();
   const sizes = await backend.cleanupScan(CLEANUP.map((c) => c.id));
-  console.log(sizes);
+  console.log(sizes, `→ ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   for (const c of CLEANUP) {
     assert.ok(c.id in sizes, `falta el tamaño de ${c.id}`);
-    if (c.scanScript !== null) assert.ok(typeof sizes[c.id] === "number", `${c.id} debe devolver un número`);
+    if (c.scanScript !== null) assert.ok(typeof sizes[c.id] === "number" && sizes[c.id] >= 0, `${c.id} debe medirse a tiempo`);
   }
 
   console.log("3) Limpieza real de temporales de usuario");
@@ -47,8 +48,37 @@ const log = (t) => console.log("   " + t);
     if (was) await backend.tweakSet(t.id, true, log); // dejarlo como estaba
   }
 
-  console.log("6) winget");
-  console.log("   disponible:", await backend.wingetAvailable());
+  console.log("6) winget: códigos de salida y lectura de tablas");
+  const o = backend.wingetOutcome;
+  assert.strictEqual(o(0).status, "done");
+  assert.strictEqual(o(3010).status, "reboot");
+  assert.strictEqual(o(-1978334967).status, "reboot");
+  assert.strictEqual(o(-1978335135).status, "already");
+  assert.strictEqual(o(-1978335107).status, "userScope");
+  assert.strictEqual(o(1).status, "error");
+  const ids = backend.parseWingetTableIds(["Name   Id            Version", "-------------------------", "Foo    Foo.Bar       1.0", "Baz    Recortado…    2.0"]);
+  assert.ok(ids.has("foo.bar") && ids.size === 1, "debe leer la columna Id e ignorar los recortados");
+
+  console.log("7) winget disponible y catálogo válido");
+  assert.ok(await backend.wingetAvailable(), "winget debe estar disponible");
+  const { runProcess } = require("../src/backend/powershell");
+  const APPS = require("../src/data/apps");
+  const missing = [];
+  for (const app of APPS) {
+    const { code } = await runProcess("winget", ["show", "--id", app.id, "--exact", "--source", "winget",
+      "--accept-source-agreements", "--disable-interactivity"]);
+    console.log(`   ${code === 0 ? "✔" : "✖"} ${app.id}`);
+    if (code !== 0) missing.push(app.id);
+  }
+  assert.deepStrictEqual(missing, [], "todos los ids del catálogo deben existir en winget");
+
+  console.log("8) Detección de apps instaladas");
+  const inst = await backend.appsInstalled();
+  console.log("   instaladas según winget:", Object.keys(inst).filter((k) => inst[k]).join(", ") || "(ninguna del catálogo)");
+  assert.strictEqual(Object.keys(inst).length, APPS.length);
+
+  console.log("9) Estado de Restaurar sistema (solo lectura)");
+  console.log("  ", await backend.restoreStatus());
 
   console.log("\n✔ Todas las pruebas de Windows han pasado.");
 })().catch((e) => { console.error("\n✖ FALLO:", e); process.exit(1); });

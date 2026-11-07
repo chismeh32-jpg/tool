@@ -10,11 +10,12 @@ const MB = 1024 ** 2;
 
 const FAKE_SIZES = {
   "temp-user": 1.8 * GB, "temp-windows": 420 * MB, "wu-cache": 3.1 * GB, "delivery-opt": 2.4 * GB,
-  thumbnails: 96 * MB, "error-reports": 610 * MB, "recycle-bin": 750 * MB, "old-updates": null,
+  thumbnails: 96 * MB, "error-reports": -1, "recycle-bin": 750 * MB, "old-updates": null,
 };
 const tweakState = Object.fromEntries(TWEAKS.map((t, i) => [t.id, i % 4 === 0]));
 const installed = new Set(["Google.Chrome", "7zip.7zip", "Valve.Steam", "Discord.Discord"]);
 let diskFree = 41 * GB;
+let restoreEnabled = false; // para enseñar el aviso de «Restaurar sistema desactivado»
 
 async function systemInfo() {
   await wait(300);
@@ -25,7 +26,14 @@ async function systemInfo() {
   };
 }
 
-async function createRestorePoint(log) {
+async function restoreStatus() { return { enabled: restoreEnabled, blockedByPolicy: false }; }
+
+async function createRestorePoint(log, { allowEnable = false } = {}) {
+  if (!restoreEnabled && !allowEnable) {
+    log("ℹ Restaurar sistema está desactivado en este PC; se pide permiso para activarlo.");
+    return { ok: false, needsEnable: true, message: "Restaurar sistema está desactivado." };
+  }
+  restoreEnabled = true;
   log("Creando punto de restauración (demo)…");
   await wait(1200);
   log("✔ Punto de restauración creado.");
@@ -50,8 +58,8 @@ async function cleanupRun(ids, log, onItem) {
     onItem && onItem(it.id, { status: "running" });
     log(`▶ ${it.name}…`);
     await wait(it.slow ? 2500 : 700);
-    const freed = it.id === "old-updates" ? 4.2 * GB : (FAKE_SIZES[it.id] || 0) * 0.93;
-    FAKE_SIZES[it.id] = (FAKE_SIZES[it.id] || 0) * 0.07;
+    const freed = it.id === "old-updates" ? 4.2 * GB : it.id === "error-reports" ? 610 * MB : Math.max(0, FAKE_SIZES[it.id] || 0) * 0.93;
+    FAKE_SIZES[it.id] = Math.max(0, FAKE_SIZES[it.id] || 0) * 0.07;
     diskFree += freed;
     const r = { id: it.id, freed, removed: 120, skipped: it.paths ? 3 : null, ok: true };
     log(`   ${it.paths ? "3 archivos estaban en uso y se han saltado." : "Operación completada."}`);
@@ -81,11 +89,19 @@ async function appsInstall(ids, log, onItem) {
     onItem && onItem(app.id, { status: "running" });
     log(`▶ Instalando ${app.name}…`);
     await wait(900);
-    const status = installed.has(app.id) ? "already" : "done";
-    installed.add(app.id);
-    log(status === "done" ? `✔ ${app.name} instalada.` : `✔ ${app.name} ya estaba instalada.`);
-    onItem && onItem(app.id, { status });
-    results.push({ id: app.id, status });
+    // La demo enseña también los casos especiales de winget
+    const outcome = installed.has(app.id) ? { status: "already" }
+      : app.id === "OBSProject.OBSStudio" ? { status: "reboot" }
+      : app.id === "Zoom.Zoom" ? { status: "userScope" }
+      : app.id === "GOG.Galaxy" ? { status: "error", reason: "Fallo de descarga. Revisa tu conexión a Internet." }
+      : { status: "done" };
+    if (outcome.status !== "error") installed.add(app.id);
+    log({ done: `✔ ${app.name} instalada.`, already: `✔ ${app.name} ya estaba instalada.`,
+      reboot: `✔ ${app.name} instalada. Reinicia el PC para terminar.`,
+      userScope: `ℹ ${app.name} ya está instalada solo para tu usuario; ToolBox (como administrador) no puede modificarla.`,
+      error: `✖ No se pudo instalar ${app.name}. ${outcome.reason || ""}` }[outcome.status]);
+    onItem && onItem(app.id, outcome);
+    results.push({ id: app.id, ...outcome });
   }
   return results;
 }
@@ -93,7 +109,7 @@ async function appsInstall(ids, log, onItem) {
 async function appsUpgradeAll(log) { log("▶ Buscando actualizaciones (demo)…"); await wait(1500); log("✔ Todo al día."); return { ok: true }; }
 
 module.exports = {
-  systemInfo, createRestorePoint, restartExplorer,
+  systemInfo, restoreStatus, createRestorePoint, restartExplorer,
   cleanupScan, cleanupRun,
   tweaksStatus, tweakSet,
   wingetAvailable, appsInstalled, appsInstall, appsUpgradeAll,

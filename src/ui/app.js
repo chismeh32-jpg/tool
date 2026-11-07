@@ -83,6 +83,39 @@
     return { node: label, get value() { return input.checked; } };
   }
 
+  /**
+   * Ejecuta una acción que puede crear un punto de restauración antes.
+   * run(opts) llama al proceso principal. Si «Restaurar sistema» está apagado, pide permiso
+   * para encenderlo; si no se puede crear el punto, pregunta si seguir sin él.
+   * Devuelve el resultado final, o null si el usuario cancela.
+   */
+  async function withRestorePoint(run, opts, what) {
+    let r = await run(opts);
+    if (!r || !r.aborted) return r;
+    const rp = r.restorePoint || {};
+    if (rp.needsEnable) {
+      const body = el("div");
+      body.append(el("p", "", "«Restaurar sistema» está desactivado en tu PC, así que ahora mismo no se pueden crear puntos de restauración."));
+      body.append(el("p", "", "Si lo activamos, Windows reservará una parte del disco (normalmente entre el 3 y el 5 %) para guardar estas copias. Puedes desactivarlo cuando quieras en Configuración → Sistema → Información → Protección del sistema."));
+      const ok = await confirmDialog({ title: "¿Activar Restaurar sistema?", body, ok: "Activar y continuar" });
+      if (ok) r = await run({ ...opts, allowEnableRestore: true });
+      else {
+        const go = await confirmDialog({ title: "¿Continuar sin punto de restauración?", body: el("p", "", `Puedes ${what} igualmente, pero no habrá una copia para volver atrás.`), ok: "Continuar sin punto" });
+        if (!go) return null;
+        return run({ ...opts, restorePoint: false });
+      }
+      if (!r || !r.aborted) return r;
+    }
+    const msg = (r.restorePoint && r.restorePoint.message) || "error desconocido";
+    const go = await confirmDialog({
+      title: "No se pudo crear el punto de restauración",
+      body: el("p", "", `Windows ha dicho: «${msg}». ¿Quieres ${what} igualmente?`),
+      ok: "Continuar sin punto",
+    });
+    if (!go) return null;
+    return run({ ...opts, restorePoint: false });
+  }
+
   function busyGuard(result) {
     if (result && result.error === "busy") { toast("Espera a que termine la tarea actual.", "info"); return true; }
     return false;
@@ -111,6 +144,7 @@
   });
   $("#activity-btn").addEventListener("click", () => $("#activity").classList.toggle("hidden"));
   $("#activity-close").addEventListener("click", () => $("#activity").classList.add("hidden"));
+  $("#open-logs").addEventListener("click", () => api.openLogs());
   api.onBusy((b) => {
     state.busy = b;
     $("#busy-dot").classList.toggle("hidden", !b);
@@ -144,8 +178,15 @@
   }
 
   $("#restore-btn").addEventListener("click", async () => {
-    const r = await api.createRestorePoint();
+    let r = await api.createRestorePoint();
     if (busyGuard(r)) return;
+    if (r.needsEnable) {
+      const body = el("div");
+      body.append(el("p", "", "«Restaurar sistema» está desactivado en tu PC. Si lo activamos, Windows reservará una parte del disco (normalmente entre el 3 y el 5 %) para guardar estas copias."));
+      if (!(await confirmDialog({ title: "¿Activar Restaurar sistema?", body, ok: "Activar y crear" }))) return;
+      r = await api.createRestorePoint({ allowEnable: true });
+      if (busyGuard(r)) return;
+    }
     if (r.ok) toast("Punto de restauración creado.", "ok");
     else toast("No se pudo crear: " + (r.message || r.error || "error desconocido"), "error");
   });
@@ -186,6 +227,7 @@
       const st = state.cleanState[it.id];
       if (st && st.status === "running") size.append(el("span", "muted", "…"));
       else if (st && st.status === "done") size.append(el("span", "", formatBytes(st.freed)));
+      else if (state.sizes[it.id] === -1) size.append(el("span", "muted", "No se pudo medir"));
       else if (it.id in state.sizes) size.append(el("span", "", state.sizes[it.id] === null ? "?" : formatBytes(state.sizes[it.id])));
       else size.append(el("span", "muted", state.scanning ? "Analizando…" : "—"));
       if (st) {
@@ -203,8 +245,8 @@
 
   function updateCleanTotal() {
     const ids = [...state.cleanSel];
-    const total = ids.reduce((s, id) => s + (state.sizes[id] || 0), 0);
-    const unknown = ids.some((id) => state.sizes[id] === null || !(id in state.sizes));
+    const total = ids.reduce((s, id) => s + Math.max(0, state.sizes[id] || 0), 0);
+    const unknown = ids.some((id) => state.sizes[id] === null || state.sizes[id] === -1 || !(id in state.sizes));
     const box = $("#cleanup-total");
     if (!ids.length) box.textContent = "Nada seleccionado";
     else {
@@ -229,7 +271,7 @@
     if (busyGuard(r)) { renderCleanup(); return; }
     state.scanned = true;
     Object.assign(state.sizes, r);
-    const total = Object.values(state.sizes).reduce((s, b) => s + (b || 0), 0);
+    const total = Object.values(state.sizes).reduce((s, b) => s + Math.max(0, b || 0), 0);
     $("#scan-status").textContent = `Hemos encontrado ${formatBytes(total)} que se pueden liberar.`;
     renderCleanup();
   }
@@ -257,18 +299,9 @@
 
     state.cleanState = {};
     renderCleanup();
-    const r = await api.cleanupRun(items.map((i) => i.id), { restorePoint: rp.value });
-    if (busyGuard(r)) return;
-    if (r.aborted) {
-      const again = await confirmDialog({
-        title: "No se pudo crear el punto de restauración",
-        body: el("p", "", `Windows ha dicho: «${r.restorePoint.message}». ¿Quieres limpiar igualmente?`),
-        ok: "Limpiar sin punto",
-      });
-      if (!again) return;
-      const r2 = await api.cleanupRun(items.map((i) => i.id), { restorePoint: false });
-      return showCleanResult(r2);
-    }
+    const ids = items.map((i) => i.id);
+    const r = await withRestorePoint((o) => api.cleanupRun(ids, o), { restorePoint: rp.value }, "limpiar");
+    if (r === null || busyGuard(r)) return;
     showCleanResult(r);
   });
 
@@ -296,7 +329,11 @@
   api.onProgress(({ kind, id, data }) => {
     if (kind === "scan") { state.sizes[id] = data; renderCleanup(); }
     if (kind === "clean") { state.cleanState[id] = data; renderCleanup(); }
-    if (kind === "install") { state.appState[id] = data.status; if (data.status === "done" || data.status === "already") state.installed[id] = true; renderApps(); }
+    if (kind === "install") {
+      state.appState[id] = data;
+      if (["done", "already", "uptodate", "reboot", "userScope"].includes(data.status)) state.installed[id] = true;
+      renderApps();
+    }
   });
 
   // ------------------------------------------------------------ Apps
@@ -341,11 +378,15 @@
       });
       const info = el("div");
       const title = el("strong", "", a.name);
-      const st = state.appState[a.id];
-      if (st === "running") title.append(el("span", "badge info", "Instalando…"));
-      else if (st === "error") title.append(el("span", "badge warn", "Error"));
+      const st = state.appState[a.id] || {};
+      let note = null;
+      if (st.status === "running") title.append(el("span", "badge info", "Instalando…"));
+      else if (st.status === "error") { title.append(el("span", "badge warn", "Error")); note = st.reason; }
+      else if (st.status === "reboot") { title.append(el("span", "badge ok", "Instalada"), el("span", "badge neutral", "Reinicia para terminar")); }
+      else if (st.status === "userScope") { title.append(el("span", "badge ok", "Instalada")); note = "Instalada solo para tu usuario: ToolBox no puede modificarla."; }
       else if (state.installed[a.id]) title.append(el("span", "badge ok", "Instalada"));
       info.append(title, el("div", "muted", a.summary));
+      if (note) info.append(el("div", "muted small app-note", note));
       card.append(cb, info);
       grid.append(card);
     }
@@ -375,7 +416,10 @@
     if (busyGuard(r)) return;
     const ok = r.results.filter((x) => x.status !== "error").length;
     const bad = r.results.length - ok;
-    toast(bad ? `${ok} instalados, ${bad} con error. Mira la Actividad.` : `¡Listo! ${ok} programa${ok > 1 ? "s" : ""} instalado${ok > 1 ? "s" : ""}.`, bad ? "error" : "ok");
+    const reboot = r.results.some((x) => x.status === "reboot");
+    let msg = bad ? `${ok} instalado${ok === 1 ? "" : "s"}, ${bad} con error. Mira la Actividad.` : `¡Listo! ${ok} programa${ok > 1 ? "s" : ""} instalado${ok > 1 ? "s" : ""}.`;
+    if (reboot) msg += " Algunos necesitan que reinicies el PC para terminar.";
+    toast(msg, bad ? "error" : "ok");
     state.appSel.clear();
     renderApps();
   });
@@ -386,7 +430,8 @@
     $("#activity").classList.remove("hidden");
     const r = await api.appsUpgradeAll();
     if (busyGuard(r)) return;
-    toast(r.ok ? "Tus programas están al día." : "Algunos programas no se pudieron actualizar.", r.ok ? "ok" : "error");
+    toast(r.ok ? (r.reboot ? "Programas actualizados. Reinicia el PC para terminar." : "Tus programas están al día.")
+      : "Algunos programas no se pudieron actualizar. Mira la Actividad.", r.ok ? "ok" : "error");
   });
 
   // ------------------------------------------------------------ Ajustes

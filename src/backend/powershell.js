@@ -25,11 +25,36 @@ function TB-Expand([string]$p) {
   if ($e -match '%' -or -not [IO.Path]::IsPathRooted($e) -or $e.Length -lt 8) { return $null }
   return $e
 }
+function TB-DirSize([IO.DirectoryInfo]$Root) {
+  # Recorrido con .NET (mucho más rápido que Get-ChildItem). No entra en enlaces (junctions)
+  # y se salta las carpetas sin permiso en vez de fallar.
+  $t = [int64]0
+  $stack = New-Object System.Collections.Generic.Stack[IO.DirectoryInfo]
+  $stack.Push($Root)
+  while ($stack.Count -gt 0) {
+    $d = $stack.Pop()
+    try { $entries = $d.GetFileSystemInfos() } catch { continue }
+    foreach ($e in $entries) {
+      if ($e -is [IO.DirectoryInfo]) {
+        if (-not ($e.Attributes -band [IO.FileAttributes]::ReparsePoint)) { $stack.Push($e) }
+      } else { $t += $e.Length }
+    }
+  }
+  return $t
+}
 function TB-Size([string[]]$Paths) {
   $t = [int64]0
   foreach ($p in $Paths) {
     $e = TB-Expand $p; if (-not $e) { continue }
-    Get-ChildItem -Path $e -Force -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { $t += $_.Length }
+    if ($e.Contains('*')) {
+      # Patrón de archivos (p. ej. thumbcache_*.db)
+      $dir = [IO.Path]::GetDirectoryName($e)
+      if ([IO.Directory]::Exists($dir)) {
+        foreach ($f in ([IO.DirectoryInfo]$dir).GetFiles([IO.Path]::GetFileName($e))) { $t += $f.Length }
+      }
+    } elseif ([IO.Directory]::Exists($e)) {
+      $t += TB-DirSize ([IO.DirectoryInfo]$e)
+    }
   }
   return $t
 }
@@ -130,11 +155,19 @@ function runPowerShell(script, opts = {}) {
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk) => chunk.split(/\r?\n/).forEach((l) => l.trim() && opts.onLine && opts.onLine("⚠ " + l.trim())));
 
-    child.on("error", (err) => { cleanup(); reject(err); });
+    let timedOut = false;
+    const timer = opts.timeoutMs ? setTimeout(() => {
+      timedOut = true;
+      // taskkill /T cierra también los procesos hijos (p. ej. dism.exe)
+      spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true }).on("error", () => child.kill());
+    }, opts.timeoutMs) : null;
+
+    child.on("error", (err) => { clearTimeout(timer); cleanup(); reject(err); });
     child.on("close", (code) => {
+      clearTimeout(timer);
       if (buffer) handleLine(buffer);
       cleanup();
-      resolve({ code, json, output });
+      resolve({ code, json, output, timedOut });
     });
   });
 
