@@ -111,7 +111,7 @@ async function appsUpgradeAll(log) { log("▶ Buscando actualizaciones (demo)…
 
 async function runRepair(id, log, onProgress) {
   const rep = REPAIRS.find((r) => r.id === id);
-  const result = { ok: true, reboot: !!rep.rebootRequired, warnings: [], failed: null };
+  const result = { ok: true, reboot: !!rep.rebootRequired, warnings: [], notes: [], failed: null };
   log(`▶ ${rep.name}`);
   for (let i = 0; i < rep.steps.length; i++) {
     const step = rep.steps[i];
@@ -123,7 +123,7 @@ async function runRepair(id, log, onProgress) {
     }
     log("   ✔ Hecho.");
   }
-  if (rep.id === "system-files") { result.reboot = true; result.warnings.push("Revisando los archivos del sistema (SFC): se repararon algunos archivos (demo)."); }
+  if (rep.id === "system-files") { result.reboot = true; result.notes.push("El disco está bien.", "La imagen de Windows está sana.", "SFC encontró archivos dañados y los reparó."); }
   if (rep.rebootSuggested) result.reboot = true;
   log(`✔ ${rep.name}: terminado.`);
   return result;

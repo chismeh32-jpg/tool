@@ -519,11 +519,12 @@
     const kind = !res.ok ? "bad" : res.warnings && res.warnings.length ? "warn" : "ok";
     const box = el("div", `repair-result ${kind}`);
     const title = !res.ok ? `✖ No se pudo completar: «${res.failed}». ${res.message || ""}`
-      : res.warnings.length ? "✔ Terminado, con algún aviso:" : "✔ Terminado sin problemas.";
+      : res.warnings.length ? "✔ Terminado, con algún aviso:" : "✔ Terminado.";
     box.append(el("div", "", title));
-    if (res.ok && res.warnings.length) {
+    const lines = [...(res.warnings || []).map((w) => "⚠ " + w), ...(res.notes || [])];
+    if (lines.length) {
       const ul = el("ul");
-      res.warnings.forEach((w) => ul.append(el("li", "", w)));
+      lines.forEach((w) => ul.append(el("li", "", w)));
       box.append(ul);
     }
     if (res.reboot) box.append(el("div", "small", "Reinicia el PC para que el arreglo surta efecto."));

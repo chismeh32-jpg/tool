@@ -161,7 +161,7 @@ async function cleanupRunExe(it, log, onItem) {
  */
 async function runRepair(id, log, onProgress) {
   const rep = REPAIRS.find((r) => r.id === id);
-  const result = { ok: true, reboot: !!rep.rebootRequired, warnings: [], failed: null };
+  const result = { ok: true, reboot: !!rep.rebootRequired, warnings: [], notes: [], failed: null };
   log(`▶ ${rep.name}`);
   for (let i = 0; i < rep.steps.length; i++) {
     const step = rep.steps[i];
@@ -172,9 +172,17 @@ async function runRepair(id, log, onProgress) {
     let ok = true, reboot = false, message = "";
     try {
       if (step.exe) {
-        const { code } = await runProcess(step.exe, step.args, {
+        const { code, output } = await runProcess(step.exe, step.args, {
           utf16: step.utf16, onLine: (l) => log("      " + l), onProgress: progress,
         });
+        // Lo que el programa dice en texto (p. ej. SFC «reparó archivos») cuenta aunque el código sea 0
+        const text = output.join("\n");
+        const rule = (step.outputRules || []).find((r) => r.match.test(text));
+        if (rule) {
+          if (rule.note) result.notes.push(rule.note);
+          if (rule.warn) result.warnings.push(rule.warn);
+          if (rule.reboot) reboot = true;
+        }
         reboot = (step.rebootCodes || []).includes(code);
         ok = reboot || (step.okCodes || [0]).includes(code);
         if (!ok) message = `${step.failText || "El paso no terminó bien."} (código 0x${code.toString(16).toUpperCase()})`;

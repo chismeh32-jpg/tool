@@ -31,6 +31,14 @@ const log = (t) => console.log("   " + t);
     if (!res.ok) failures.push(`${id}: ${res.failed} → ${res.message}`);
   }
 
+  // Las reglas de texto deben reconocer los mensajes reales de SFC (inglés y español)
+  const sfc = REPAIRS.find((r) => r.id === "system-files").steps.find((s) => s.exe === "sfc.exe");
+  const pick = (t) => (sfc.outputRules.find((r) => r.match.test(t)) || {});
+  assert.ok(pick("Windows Resource Protection found corrupt files and successfully repaired them.").reboot);
+  assert.ok(pick("Protección de recursos de Windows encontró archivos dañados y los reparó correctamente.").reboot);
+  assert.ok(pick("Windows Resource Protection found corrupt files but was unable to fix some of them.").warn);
+  assert.ok(pick("Protección de recursos de Windows no encontró ninguna infracción de integridad.").note);
+
   // Después de reiniciar Windows Update, los servicios deben volver a estar en marcha
   const { runPowerShell } = require("../src/backend/powershell");
   const { json } = await runPowerShell("Emit @{ s = (Get-Service wuauserv, bits, Spooler | ForEach-Object { \"$($_.Name)=$($_.Status)\" }) -join ',' }");

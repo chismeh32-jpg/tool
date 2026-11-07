@@ -22,11 +22,19 @@ module.exports = [
     internet: true,
     steps: [
       { label: "Revisando el disco", exe: "chkdsk.exe", args: [SYS, "/scan"], okCodes: [0, 1, 2], warnOnFail: true,
+        outputRules: [{ match: /found no problems|no encontr[óo] problemas/i, note: "El disco está bien." }],
         failText: "El disco tiene errores que no se pueden arreglar con Windows encendido. Ejecuta «chkdsk /f» al reiniciar o revisa la salud del disco." },
       { label: "Reparando la imagen de Windows (DISM)", exe: "DISM.exe", args: ["/Online", "/Cleanup-Image", "/RestoreHealth", "/English"],
         okCodes: [0], rebootCodes: [3010],
+        outputRules: [{ match: /restore operation completed successfully|restauraci[óo]n se complet[óo] correctamente/i, note: "La imagen de Windows está sana." }],
         failText: "DISM no pudo terminar. Comprueba tu conexión a Internet y vuelve a intentarlo." },
       { label: "Revisando los archivos del sistema (SFC)", exe: "sfc.exe", args: ["/scannow"], okCodes: [0], utf16: true, warnOnFail: true,
+        // SFC sale con 0 tanto si todo está bien como si ha reparado algo: hay que leer su mensaje (inglés o español)
+        outputRules: [
+          { match: /unable to fix|no pudo (reparar|corregir)/i, warn: "SFC encontró archivos dañados que no pudo reparar. Reinicia y repite la reparación.", reboot: true },
+          { match: /successfully repaired|(los )?repar[óo] correctamente/i, note: "SFC encontró archivos dañados y los reparó.", reboot: true },
+          { match: /did not find any integrity violations|no encontr[óo] ninguna infracci[óo]n/i, note: "Los archivos del sistema están bien." },
+        ],
         failText: "SFC encontró archivos que no pudo reparar. Reinicia y repite la reparación; si sigue igual, puede hacer falta reinstalar Windows conservando tus archivos." },
     ],
   },
