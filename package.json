@@ -1,0 +1,38 @@
+{
+  "name": "toolbox",
+  "productName": "ToolBox",
+  "version": "0.1.0",
+  "description": "Pon tu Windows a punto: limpieza, instalación de apps y ajustes, explicados paso a paso.",
+  "main": "src/main.js",
+  "author": "chismeh32-jpg",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test:windows": "node test/windows-smoke.js",
+    "dist": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.10.2",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "com.chismeh32.toolbox",
+    "productName": "ToolBox",
+    "directories": { "output": "dist" },
+    "files": ["src/**/*", "package.json"],
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "build/icon.png",
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "ToolBox-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "ToolBox-Portable-${version}.${ext}"
+    }
+  }
+}

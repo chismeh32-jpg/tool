@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'">
+  <title>ToolBox</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="layout">
+    <!-- Barra lateral -->
+    <nav class="sidebar" aria-label="Secciones">
+      <div class="brand">
+        <img src="icon.png" alt="" class="brand-icon">
+        <span>ToolBox</span>
+      </div>
+      <button class="nav-item active" data-page="home"><span class="nav-ico">🏠</span>Inicio</button>
+      <button class="nav-item" data-page="cleanup"><span class="nav-ico">🧹</span>Limpieza</button>
+      <button class="nav-item" data-page="apps"><span class="nav-ico">📦</span>Aplicaciones</button>
+      <button class="nav-item" data-page="tweaks"><span class="nav-ico">🎛️</span>Ajustes</button>
+      <div class="sidebar-spacer"></div>
+      <div class="demo-pill hidden" id="demo-pill" title="No estás en Windows: ToolBox simula todo y no toca nada.">Modo demostración</div>
+      <button class="nav-item small" id="activity-btn"><span class="nav-ico">📜</span>Actividad <span class="busy-dot hidden" id="busy-dot"></span></button>
+    </nav>
+
+    <main class="content">
+      <!-- INICIO -->
+      <section class="page active" id="page-home">
+        <header class="page-head">
+          <h1 id="greeting">Hola 👋</h1>
+          <p class="lead">ToolBox pone tu Windows a punto. Antes de hacer nada te explica <strong>qué hace</strong> y <strong>qué cambia</strong>, y siempre te pide confirmación.</p>
+        </header>
+
+        <div class="grid-2">
+          <div class="card">
+            <h2 class="card-title">Espacio en disco <span class="muted" id="disk-drive"></span></h2>
+            <div class="disk-big"><span id="disk-free">—</span> libres</div>
+            <div class="meter" role="progressbar" aria-label="Espacio usado" id="disk-meter"><div class="meter-fill" id="disk-fill"></div></div>
+            <p class="muted small" id="disk-detail">Calculando…</p>
+          </div>
+          <div class="card">
+            <h2 class="card-title">Tu equipo</h2>
+            <dl class="specs" id="specs">
+              <dt>Sistema</dt><dd>—</dd>
+            </dl>
+          </div>
+        </div>
+
+        <h2 class="section-title">¿Qué quieres hacer?</h2>
+        <div class="grid-3">
+          <button class="action-card" data-goto="cleanup" data-autoscan="1">
+            <span class="action-ico">🧹</span>
+            <strong>Liberar espacio</strong>
+            <span class="muted">Busca archivos temporales y restos de actualizaciones que puedes borrar sin miedo.</span>
+          </button>
+          <button class="action-card" data-goto="apps">
+            <span class="action-ico">📦</span>
+            <strong>Instalar programas</strong>
+            <span class="muted">Elige varios y se instalan solos, sin ir web por web ni pulsar «Siguiente».</span>
+          </button>
+          <button class="action-card" data-goto="tweaks">
+            <span class="action-ico">🎛️</span>
+            <strong>Mejorar Windows</strong>
+            <span class="muted">Quita anuncios, activa opciones útiles y ajusta el ratón para jugar.</span>
+          </button>
+        </div>
+
+        <div class="card row-card">
+          <div>
+            <h2 class="card-title">🛟 Punto de restauración</h2>
+            <p class="muted">Es una «foto» de la configuración de Windows. Si algo fuera mal, puedes volver a ella desde
+              <em>Configuración → Sistema → Recuperación</em>. ToolBox te ofrece crear uno antes de cada cambio importante.</p>
+          </div>
+          <button class="btn" id="restore-btn">Crear ahora</button>
+        </div>
+      </section>
+
+      <!-- LIMPIEZA -->
+      <section class="page" id="page-cleanup">
+        <header class="page-head">
+          <h1>🧹 Limpieza</h1>
+          <p class="lead">Primero <strong>analizamos</strong> cuánto ocupa cada cosa (no se borra nada). Luego eliges qué limpiar.
+            Las marcadas como <span class="badge ok">Seguro</span> se pueden borrar siempre.</p>
+        </header>
+        <div class="toolbar">
+          <button class="btn primary" id="scan-btn">🔍 Analizar</button>
+          <span class="muted" id="scan-status">Pulsa «Analizar» para ver cuánto espacio puedes recuperar.</span>
+        </div>
+        <div class="list" id="cleanup-list"></div>
+        <div class="result-banner hidden" id="cleanup-result"></div>
+        <div class="footer-bar">
+          <span id="cleanup-total">Nada seleccionado</span>
+          <button class="btn primary" id="clean-btn" disabled>Limpiar</button>
+        </div>
+      </section>
+
+      <!-- APLICACIONES -->
+      <section class="page" id="page-apps">
+        <header class="page-head">
+          <h1>📦 Aplicaciones</h1>
+          <p class="lead">Marca los programas que quieras y pulsa «Instalar». Se descargan de sus webs oficiales a través de
+            <strong>winget</strong>, el instalador oficial de Microsoft, y se instalan sin preguntas.</p>
+        </header>
+        <div class="banner warn hidden" id="winget-missing">
+          ⚠ No encontramos <strong>winget</strong> en este PC. Instala «Instalador de aplicación» desde Microsoft Store y vuelve a abrir ToolBox.
+        </div>
+        <div class="toolbar">
+          <input type="search" id="app-search" placeholder="Buscar programa…" aria-label="Buscar programa">
+          <button class="btn" id="upgrade-btn" title="Actualiza todos los programas instalados que tengan versión nueva">⬆ Actualizar todas mis apps</button>
+        </div>
+        <div class="chips" id="app-cats"></div>
+        <div class="app-grid" id="app-grid"></div>
+        <div class="footer-bar">
+          <span id="apps-total">Nada seleccionado</span>
+          <button class="btn primary" id="install-btn" disabled>Instalar</button>
+        </div>
+      </section>
+
+      <!-- AJUSTES -->
+      <section class="page" id="page-tweaks">
+        <header class="page-head">
+          <h1>🎛️ Ajustes</h1>
+          <p class="lead">Activa lo que te guste con el interruptor. <strong>Todo se puede deshacer</strong>: apágalo y Windows vuelve a
+            como estaba.</p>
+        </header>
+        <div id="tweak-groups"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Panel de actividad -->
+  <aside class="activity hidden" id="activity" aria-label="Actividad">
+    <div class="activity-head">
+      <strong>Actividad</strong>
+      <span class="muted small">Lo que ToolBox está haciendo, paso a paso</span>
+      <button class="icon-btn" id="activity-close" aria-label="Cerrar">✕</button>
+    </div>
+    <pre class="activity-log" id="activity-log"></pre>
+  </aside>
+
+  <!-- Ventana de confirmación -->
+  <div class="modal-backdrop hidden" id="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h2 id="modal-title"></h2>
+      <div id="modal-body"></div>
+      <div class="modal-actions">
+        <button class="btn" id="modal-cancel">Cancelar</button>
+        <button class="btn primary" id="modal-ok">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

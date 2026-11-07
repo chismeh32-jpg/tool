@@ -1,37 +1,57 @@
-# 🕵️ El Infiltrado
+# 🧰 ToolBox
 
-Juego de fiesta para jugar con amigos **con un solo móvil**.
+App de escritorio para **poner tu Windows a punto**, pensada para que cualquiera la entienda:
+antes de hacer nada te explica **qué hace**, **qué notarás después** y te pide confirmación.
 
-Todos reciben la misma palabra secreta… menos el infiltrado, que no sabe cuál es.
-Por turnos, cada uno dice una palabra relacionada. Después votáis quién es el infiltrado.
-Si le pilláis, aún puede ganar si adivina la palabra.
+## Qué hace
 
-## Cómo jugar
-1. Añadid los nombres (mínimo 3), elegid categorías y pulsad **Empezar partida**.
-2. Pasaos el móvil: cada uno ve su palabra (o descubre que es el infiltrado).
-3. Ronda de pistas con temporizador.
-4. Votad, revelad y sumad puntos.
+| Sección | Para qué sirve |
+|---|---|
+| 🏠 **Inicio** | Espacio libre en disco, datos de tu PC y botón para crear un punto de restauración. |
+| 🧹 **Limpieza** | Analiza (sin borrar) y luego limpia: temporales, descargas de Windows Update, caché de Optimización de distribución, miniaturas, informes de errores, papelera y **actualizaciones antiguas de Windows** (DISM). |
+| 📦 **Aplicaciones** | Instala varios programas de golpe con `winget` (el instalador oficial de Microsoft) y actualiza todos los que tengas. |
+| 🎛️ **Ajustes** | Interruptores para quitar anuncios, mostrar extensiones, menú clásico, modo oscuro, ratón sin aceleración… **Todos se pueden deshacer.** |
 
-### Puntos
-- Pilláis al infiltrado y falla la palabra: **+1** para cada jugador normal.
-- Le pilláis pero acierta la palabra: **+2** para el infiltrado.
-- El infiltrado no es descubierto: **+3** para él.
+Cada limpieza viene marcada como **Seguro** o **Precaución**, y antes de los cambios importantes se ofrece un
+**punto de restauración** de Windows.
 
-## Tecnología
-HTML, CSS y JavaScript sin dependencias ni compilación. Funciona sin conexión una vez cargado.
+## Descargar
 
-- `index.html`: pantallas del juego
-- `styles.css`: estilos
-- `app.js`: lógica
-- `words.js`: banco de palabras (¡añade las vuestras!)
+1. Ve a la pestaña **Actions** del repositorio → la última ejecución en verde.
+2. Descarga el archivo **ToolBox-Windows** (abajo, en *Artifacts*).
+3. Dentro tienes:
+   - `ToolBox-Setup-x.y.z.exe` → instalador normal.
+   - `ToolBox-Portable-x.y.z.exe` → se ejecuta sin instalar.
 
-## Jugar en local
-Abre `index.html` en el navegador, o:
+> Windows SmartScreen avisará de que la app «no es conocida» porque no está firmada digitalmente.
+> Pulsa **Más información → Ejecutar de todas formas**. ToolBox pide permisos de administrador porque
+> los necesita para limpiar carpetas del sistema y cambiar ajustes.
+
+## Cómo está hecha
+
+- **Electron**: la interfaz es HTML/CSS/JavaScript (`src/ui/`).
+- **PowerShell** por debajo para hablar con Windows (`src/backend/`).
+- Los catálogos son listas fáciles de editar:
+  - `src/data/cleanup.js` – limpiezas
+  - `src/data/tweaks.js` – ajustes (con su valor original para deshacer)
+  - `src/data/apps.js` – programas (identificadores de winget)
+- La interfaz **nunca** puede ejecutar comandos libres: solo pide acciones por su identificador y el
+  proceso principal comprueba que existan en los catálogos.
+
+## Desarrollo
 
 ```bash
-npx serve .
+npm install
+npm start          # en Windows: modo real. En Mac/Linux: modo demostración (no toca nada)
 ```
 
-## Publicarlo gratis
-- **GitHub Pages**: Settings → Pages → Branch: `main` / root.
-- **Vercel**: importa el repo; no necesita configuración.
+En Windows puedes probar la interfaz sin tocar el sistema con `set TOOLBOX_MOCK=1 && npm start`.
+
+```bash
+npm run test:windows   # pruebas reales de los scripts (solo Windows, como administrador)
+npm run dist           # crea el instalador en dist/
+```
+
+GitHub Actions ejecuta las pruebas en un Windows real y crea los instaladores en cada push.
+
+Inspirada en la idea de [WinUtil](https://github.com/ChrisTitusTech/winutil) (MIT); código, diseño y catálogos propios.

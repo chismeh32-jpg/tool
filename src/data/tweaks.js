@@ -1,0 +1,156 @@
+// Catálogo de ajustes. Todos se pueden deshacer.
+// Cada cambio de registro indica el valor que se aplica ("value") y cómo dejarlo como
+// estaba en un Windows recién instalado ("original": un valor, o null para borrar el valor).
+// "removeKeyOnUndo": al deshacer se borra esa clave entera (porque Windows no la trae).
+//   restart: null | "explorer" (hay que reiniciar el Explorador) | "logout" (cerrar sesión)
+const ADV = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced";
+const CDM = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager";
+
+module.exports = [
+  {
+    id: "show-extensions",
+    category: "Explorador",
+    name: "Mostrar las extensiones de archivo",
+    summary: "Verás «foto.jpg» en vez de solo «foto».",
+    details: "Es útil para saber qué tipo de archivo es cada uno y protege contra virus que se disfrazan " +
+      "(por ejemplo «factura.pdf.exe» parece un PDF pero es un programa).",
+    risk: "seguro",
+    restart: "explorer",
+    registry: [{ path: ADV, name: "HideFileExt", type: "DWord", value: 0, original: 1 }],
+  },
+  {
+    id: "show-hidden",
+    category: "Explorador",
+    name: "Mostrar archivos y carpetas ocultos",
+    summary: "Aparecerán carpetas como AppData que normalmente no se ven.",
+    details: "Se muestran semitransparentes para distinguirlas. Útil para encontrar partidas guardadas o configuraciones.",
+    risk: "seguro",
+    restart: "explorer",
+    registry: [{ path: ADV, name: "Hidden", type: "DWord", value: 1, original: 2 }],
+  },
+  {
+    id: "classic-context-menu",
+    category: "Explorador",
+    name: "Menú del clic derecho clásico (Windows 11)",
+    summary: "Al hacer clic derecho verás todas las opciones directamente, sin «Mostrar más opciones».",
+    details: "Recupera el menú completo de Windows 10. Solo tiene efecto en Windows 11.",
+    risk: "seguro",
+    restart: "explorer",
+    registry: [{
+      path: "HKCU\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\\InprocServer32",
+      name: "", type: "String", value: "", original: null,
+      removeKeyOnUndo: "HKCU\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}",
+    }],
+  },
+  {
+    id: "end-task",
+    category: "Barra de tareas",
+    name: "«Finalizar tarea» en la barra de tareas",
+    summary: "Clic derecho en un programa colgado de la barra de tareas → Finalizar tarea.",
+    details: "Cierra a la fuerza un programa sin abrir el Administrador de tareas. Windows 11 (23H2 o posterior).",
+    risk: "seguro",
+    restart: null,
+    registry: [{ path: ADV + "\\TaskbarDeveloperSettings", name: "TaskbarEndTask", type: "DWord", value: 1, original: null }],
+  },
+  {
+    id: "clock-seconds",
+    category: "Barra de tareas",
+    name: "Mostrar segundos en el reloj",
+    summary: "El reloj de la barra de tareas mostrará también los segundos.",
+    details: "Gasta una cantidad mínima de batería extra en portátiles.",
+    risk: "seguro",
+    restart: "explorer",
+    registry: [{ path: ADV, name: "ShowSecondsInSystemClock", type: "DWord", value: 1, original: null }],
+  },
+  {
+    id: "dark-mode",
+    category: "Apariencia",
+    name: "Modo oscuro",
+    summary: "Windows y las apps compatibles usarán colores oscuros.",
+    details: "Es lo mismo que cambiarlo en Configuración → Personalización → Colores.",
+    risk: "seguro",
+    restart: null,
+    registry: [
+      { path: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", name: "AppsUseLightTheme", type: "DWord", value: 0, original: 1 },
+      { path: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", name: "SystemUsesLightTheme", type: "DWord", value: 0, original: 1 },
+    ],
+  },
+  {
+    id: "no-start-ads",
+    category: "Privacidad y anuncios",
+    name: "Quitar anuncios y sugerencias",
+    summary: "Windows dejará de recomendarte apps y de instalar «sugerencias» por su cuenta.",
+    details: "Desactiva las apps promocionadas del menú Inicio, los consejos con publicidad y la instalación " +
+      "silenciosa de apps patrocinadas (como juegos que aparecen solos).",
+    risk: "seguro",
+    restart: null,
+    registry: [
+      { path: CDM, name: "SystemPaneSuggestionsEnabled", type: "DWord", value: 0, original: 1 },
+      { path: CDM, name: "SilentInstalledAppsEnabled", type: "DWord", value: 0, original: 1 },
+      { path: CDM, name: "SubscribedContent-338388Enabled", type: "DWord", value: 0, original: 1 },
+      { path: CDM, name: "SubscribedContent-338389Enabled", type: "DWord", value: 0, original: 1 },
+      { path: CDM, name: "SoftLandingEnabled", type: "DWord", value: 0, original: 1 },
+    ],
+  },
+  {
+    id: "no-ad-id",
+    category: "Privacidad y anuncios",
+    name: "Desactivar el ID de publicidad",
+    summary: "Las apps no podrán usar un identificador tuyo para mostrarte anuncios personalizados.",
+    details: "Seguirás viendo anuncios en algunas apps, pero no basados en tu actividad.",
+    risk: "seguro",
+    restart: null,
+    registry: [{ path: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo", name: "Enabled", type: "DWord", value: 0, original: 1 }],
+  },
+  {
+    id: "no-bing-search",
+    category: "Privacidad y anuncios",
+    name: "Búsqueda del menú Inicio sin Internet",
+    summary: "Al buscar en el menú Inicio solo saldrán tus apps y archivos, sin resultados de Bing.",
+    details: "La búsqueda será más rápida y lo que escribes no se envía a Internet.",
+    risk: "seguro",
+    restart: "explorer",
+    registry: [
+      { path: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Search", name: "BingSearchEnabled", type: "DWord", value: 0, original: null },
+      { path: "HKCU\\Software\\Policies\\Microsoft\\Windows\\Explorer", name: "DisableSearchBoxSuggestions", type: "DWord", value: 1, original: null },
+    ],
+  },
+  {
+    id: "telemetry-min",
+    category: "Privacidad y anuncios",
+    name: "Telemetría al mínimo",
+    summary: "Windows enviará a Microsoft solo los datos de diagnóstico imprescindibles.",
+    details: "Reduce los datos de uso que tu PC envía. Las actualizaciones siguen funcionando con normalidad.",
+    risk: "seguro",
+    restart: null,
+    admin: true,
+    registry: [
+      { path: "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", name: "AllowTelemetry", type: "DWord", value: 0, original: null },
+      { path: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Privacy", name: "TailoredExperiencesWithDiagnosticDataEnabled", type: "DWord", value: 0, original: null },
+    ],
+  },
+  {
+    id: "no-mouse-accel",
+    category: "Juegos y ratón",
+    name: "Desactivar la aceleración del ratón",
+    summary: "El puntero se moverá siempre la misma distancia, muevas el ratón rápido o despacio.",
+    details: "Equivale a quitar «Mejorar la precisión del puntero». Muy recomendado para jugar.",
+    risk: "seguro",
+    restart: "logout",
+    registry: [
+      { path: "HKCU\\Control Panel\\Mouse", name: "MouseSpeed", type: "String", value: "0", original: "1" },
+      { path: "HKCU\\Control Panel\\Mouse", name: "MouseThreshold1", type: "String", value: "0", original: "6" },
+      { path: "HKCU\\Control Panel\\Mouse", name: "MouseThreshold2", type: "String", value: "0", original: "10" },
+    ],
+  },
+  {
+    id: "no-sticky-keys",
+    category: "Juegos y ratón",
+    name: "Quitar el aviso de «Teclas especiales»",
+    summary: "Pulsar Mayús 5 veces ya no abrirá la ventana de Teclas especiales.",
+    details: "Evita que salga ese aviso en mitad de una partida. La función sigue disponible en Configuración.",
+    risk: "seguro",
+    restart: "logout",
+    registry: [{ path: "HKCU\\Control Panel\\Accessibility\\StickyKeys", name: "Flags", type: "String", value: "506", original: "510" }],
+  },
+];
