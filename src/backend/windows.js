@@ -183,7 +183,7 @@ async function runRepair(id, log, onProgress) {
           if (rule.warn) result.warnings.push(rule.warn);
           if (rule.reboot) reboot = true;
         }
-        reboot = (step.rebootCodes || []).includes(code);
+        reboot = reboot || (step.rebootCodes || []).includes(code);
         ok = reboot || (step.okCodes || [0]).includes(code);
         if (!ok) message = `${step.failText || "El paso no terminó bien."} (código 0x${code.toString(16).toUpperCase()})`;
       } else {

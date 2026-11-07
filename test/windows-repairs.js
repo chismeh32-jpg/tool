@@ -29,6 +29,7 @@ const log = (t) => console.log("   " + t);
     });
     console.log(`   resultado (${Math.round((Date.now() - t0) / 1000)} s):`, JSON.stringify(res));
     if (!res.ok) failures.push(`${id}: ${res.failed} → ${res.message}`);
+    if ((res.notes || []).some((n) => /los reparó/.test(n)) && !res.reboot) failures.push(`${id}: SFC reparó archivos pero no se pidió reiniciar`);
   }
 
   // Las reglas de texto deben reconocer los mensajes reales de SFC (inglés y español)
