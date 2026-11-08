@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, net } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { spawnSync } = require("child_process");
@@ -282,6 +282,36 @@ ipcMain.handle("gfx:windows", (_e, key, enable) => exclusive(() => {
   return backend.windowsSet(key, !!enable, log);
 }));
 ipcMain.handle("gfx:telemetry", (_e, enable) => exclusive(() => backend.nvidiaTelemetrySet(!!enable, log)));
+// ---- ¿Hay una versión nueva? (una consulta a la página pública de versiones de GitHub)
+const REPO = "chismeh32-jpg/tool";
+const RELEASES = `https://github.com/${REPO}/releases/`;
+function isNewer(a, b) {
+  const pa = String(a).split(".").map(Number), pb = String(b).split(".").map(Number);
+  for (let i = 0; i < 3; i++) { if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0); }
+  return false;
+}
+ipcMain.handle("app:checkUpdate", async () => {
+  const current = app.getVersion();
+  if (backend.isMock) return { current };
+  try {
+    const res = await net.fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+      headers: { Accept: "application/vnd.github+json", "User-Agent": "ToolBox-update-check" },
+    });
+    if (!res.ok) return { current };
+    const r = await res.json();
+    const latest = String(r.tag_name || "").replace(/^v/, "");
+    const url = String(r.html_url || "");
+    if (/^\d+\.\d+\.\d+$/.test(latest) && url.startsWith(RELEASES) && isNewer(latest, current)) {
+      log(`ℹ Hay una versión nueva de ToolBox: ${latest} (tienes la ${current}).`);
+      return { current, latest, url };
+    }
+  } catch { /* sin Internet: no pasa nada */ }
+  return { current };
+});
+ipcMain.handle("app:openRelease", (_e, url) => {
+  // Solo se abre la página de versiones de ToolBox, nunca otra dirección
+  if (typeof url === "string" && url.startsWith(RELEASES)) shell.openExternal(url);
+});
 ipcMain.handle("system:openLogs", () => shell.openPath(path.dirname(logPath())));
 ipcMain.handle("system:restartExplorer", () => exclusive(() => backend.restartExplorer(log)));
 

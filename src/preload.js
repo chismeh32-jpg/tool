@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld("toolbox", {
   systemInfo: () => ipcRenderer.invoke("system:info"),
   createRestorePoint: (opts) => ipcRenderer.invoke("system:restorePoint", opts),
   openLogs: () => ipcRenderer.invoke("system:openLogs"),
+  checkUpdate: () => ipcRenderer.invoke("app:checkUpdate"),
+  openRelease: (url) => ipcRenderer.invoke("app:openRelease", url),
   reboot: () => ipcRenderer.invoke("system:reboot"),
   runRepair: (id, opts) => ipcRenderer.invoke("repairs:run", id, opts),
   bloatStatus: () => ipcRenderer.invoke("bloat:status"),

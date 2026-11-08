@@ -22,6 +22,7 @@
       <button class="nav-item" data-page="graphics"><span class="nav-ico">🖥️</span>Gráficos</button>
       <button class="nav-item" data-page="tweaks"><span class="nav-ico">🎛️</span>Ajustes</button>
       <div class="sidebar-spacer"></div>
+      <div class="version-label" id="version-label"></div>
       <div class="demo-pill hidden" id="demo-pill" title="No estás en Windows: ToolBox simula todo y no toca nada.">Modo demostración</div>
       <button class="nav-item small" id="activity-btn"><span class="nav-ico">📜</span>Actividad <span class="busy-dot hidden" id="busy-dot"></span></button>
     </nav>
@@ -32,6 +33,10 @@
         <header class="page-head">
           <h1 id="greeting">Hola 👋</h1>
           <div class="banner warn hidden" id="other-user-warning"></div>
+          <div class="banner update hidden" id="update-banner">
+            <span id="update-text"></span>
+            <button class="btn primary btn-small" id="update-btn">Descargar</button>
+          </div>
           <p class="lead">ToolBox pone tu Windows a punto. Antes de hacer nada te explica <strong>qué hace</strong> y <strong>qué cambia</strong>, y siempre te pide confirmación.</p>
         </header>
 

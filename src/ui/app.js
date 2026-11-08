@@ -1220,5 +1220,17 @@
     renderProfiles();
     refreshButtons();
     loadSystem();
+    checkUpdate();
   })();
+
+  async function checkUpdate() {
+    const u = await api.checkUpdate().catch(() => null);
+    if (!u) return;
+    $("#version-label").textContent = `Versión ${u.current}`;
+    if (u.latest) {
+      $("#update-text").textContent = `🎉 Hay una versión nueva de ToolBox: la ${u.latest} (tienes la ${u.current}).`;
+      $("#update-btn").onclick = () => api.openRelease(u.url);
+      $("#update-banner").classList.remove("hidden");
+    }
+  }
 })();

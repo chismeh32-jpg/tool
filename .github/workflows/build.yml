@@ -86,3 +86,38 @@ jobs:
         run: node test/windows-uninstall.js
       - name: Probar reparaciones en Windows real
         run: node test/windows-repairs.js
+
+  publicar:
+    # Solo al subir una etiqueta de versión (p. ej. v0.7.0) y solo si TODAS las pruebas en Windows han pasado
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, reparaciones]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Comprobar que la etiqueta coincide con la versión de la app
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          P=$(node -p "require('./package.json').version")
+          if [ "$V" != "$P" ]; then echo "La etiqueta $GITHUB_REF_NAME no coincide con package.json ($P)"; exit 1; fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ToolBox-Windows
+          path: dist
+
+      - name: Notas de la versión y sumas de verificación
+        run: |
+          node scripts/release-notes.js "$GITHUB_REF_NAME" > notas.md
+          cd dist && sha256sum *.exe > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Publicar en GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ToolBox ${{ github.ref_name }}
+          body_path: notas.md
+          files: |
+            dist/*.exe
+            dist/SHA256SUMS.txt

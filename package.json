@@ -1,7 +1,7 @@
 {
   "name": "toolbox",
   "productName": "ToolBox",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Pon tu Windows a punto: limpieza, instalación de apps y ajustes, explicados paso a paso.",
   "main": "src/main.js",
   "author": "chismeh32-jpg",

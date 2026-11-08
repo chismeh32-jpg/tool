@@ -20,17 +20,33 @@ Cada limpieza viene marcada como **Seguro** o **Precaución**, y antes de los ca
 
 ## Descargar
 
-1. Ve a la pestaña **Actions** del repositorio → la última ejecución en verde.
-2. Descarga el archivo **ToolBox-Windows** (abajo, en *Artifacts*).
-3. Dentro tienes:
-   - `ToolBox-Setup-x.y.z.exe` → instalador normal.
-   - `ToolBox-Portable-x.y.z.exe` → se ejecuta sin instalar.
+👉 **[Última versión de ToolBox](https://github.com/chismeh32-jpg/tool/releases/latest)** (no hace falta cuenta de GitHub)
 
-> Windows SmartScreen avisará de que la app «no es conocida» porque no está firmada digitalmente.
-> Pulsa **Más información → Ejecutar de todas formas**. ToolBox pide permisos de administrador porque
+- `ToolBox-Setup-x.y.z.exe` → instalador (recomendado). Se instala en «Archivos de programa».
+- `ToolBox-Portable-x.y.z.exe` → se ejecuta sin instalar.
+- `SHA256SUMS.txt` → sumas de verificación para comprobar que la descarga no se ha alterado.
+
+> Windows SmartScreen avisará de que la app «no es conocida» porque todavía no está firmada digitalmente.
+> Pulsa **Más información → Ejecutar de todas formas**. ToolBox pide permisos de administrador al abrirse porque
 > los necesita para limpiar carpetas del sistema y cambiar ajustes.
 
+ToolBox te avisa en la pantalla de Inicio cuando sale una versión nueva. Para saberlo hace una única consulta a la
+página pública de versiones de GitHub al abrirse; no envía ningún dato tuyo.
+
+### Publicar una versión (para quien mantiene el proyecto)
+1. Sube `version` en `package.json` y añade sus novedades al principio de «Novedades» (empezando por `**x.y.z – …**`).
+2. Sube los cambios a `main` y crea la etiqueta: `git tag vx.y.z && git push origin vx.y.z`.
+3. GitHub Actions ejecuta **todas** las pruebas en Windows y, si pasan, publica la versión con sus notas.
+
 ## Novedades
+
+**0.7.0 – Descargas públicas**
+- ToolBox se publica en **[GitHub Releases](https://github.com/chismeh32-jpg/tool/releases/latest)**: se descarga sin
+  cuenta de GitHub y las versiones no caducan.
+- **Aviso de versión nueva** en la pantalla de Inicio, con botón para descargarla. La versión instalada aparece en la
+  barra lateral.
+- Cada versión solo se publica si pasan todas las pruebas en Windows real, e incluye sus notas y las sumas de
+  verificación SHA-256.
 
 **0.6.1 – Seguridad y fiabilidad** (revisión de todo el código)
 - 🔴 **Arreglado un fallo grave: en Windows la ventana de ToolBox no llegaba a cargar** (versiones 0.1 a 0.6).
