@@ -88,8 +88,9 @@ jobs:
         run: node test/windows-repairs.js
 
   publicar:
-    # Solo al subir una etiqueta de versión (p. ej. v0.7.0) y solo si TODAS las pruebas en Windows han pasado
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Publica en GitHub Releases cuando llega a «main» una versión de package.json que aún no está publicada
+    # (o al subir una etiqueta vX.Y.Z). Solo si TODAS las pruebas en Windows han pasado.
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     needs: [windows, reparaciones]
     runs-on: ubuntu-latest
     permissions:
@@ -97,26 +98,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Comprobar que la etiqueta coincide con la versión de la app
+      - name: ¿Hay una versión nueva que publicar?
+        id: ver
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          V="${GITHUB_REF_NAME#v}"
           P=$(node -p "require('./package.json').version")
-          if [ "$V" != "$P" ]; then echo "La etiqueta $GITHUB_REF_NAME no coincide con package.json ($P)"; exit 1; fi
+          echo "version=$P" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            if [ "${GITHUB_REF_NAME#v}" != "$P" ]; then echo "La etiqueta $GITHUB_REF_NAME no coincide con package.json ($P)"; exit 1; fi
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          elif gh release view "v$P" > /dev/null 2>&1; then
+            echo "La versión v$P ya está publicada: no hay nada que hacer."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Se publicará la versión v$P."
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/download-artifact@v4
+        if: steps.ver.outputs.publish == 'true'
         with:
           name: ToolBox-Windows
           path: dist
 
       - name: Notas de la versión y sumas de verificación
+        if: steps.ver.outputs.publish == 'true'
         run: |
-          node scripts/release-notes.js "$GITHUB_REF_NAME" > notas.md
+          node scripts/release-notes.js "v${{ steps.ver.outputs.version }}" > notas.md
           cd dist && sha256sum *.exe > SHA256SUMS.txt && cat SHA256SUMS.txt
 
       - name: Publicar en GitHub Releases
+        if: steps.ver.outputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          name: ToolBox ${{ github.ref_name }}
+          tag_name: v${{ steps.ver.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: ToolBox v${{ steps.ver.outputs.version }}
           body_path: notas.md
           files: |
             dist/*.exe

@@ -35,8 +35,9 @@ página pública de versiones de GitHub al abrirse; no envía ningún dato tuyo.
 
 ### Publicar una versión (para quien mantiene el proyecto)
 1. Sube `version` en `package.json` y añade sus novedades al principio de «Novedades» (empezando por `**x.y.z – …**`).
-2. Sube los cambios a `main` y crea la etiqueta: `git tag vx.y.z && git push origin vx.y.z`.
-3. GitHub Actions ejecuta **todas** las pruebas en Windows y, si pasan, publica la versión con sus notas.
+2. Sube los cambios a `main`.
+3. GitHub Actions ejecuta **todas** las pruebas en Windows y, si pasan y esa versión aún no existe, la publica
+   (crea la etiqueta `vx.y.z`, las notas y las sumas de verificación).
 
 ## Novedades
 
