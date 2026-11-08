@@ -7,6 +7,7 @@ const TWEAKS = require("./data/tweaks");
 const APPS = require("./data/apps");
 const REPAIRS = require("./data/repairs");
 const BLOATWARE = require("./data/bloatware");
+const profiles = require("./backend/profiles");
 
 let win = null;
 let busy = false;
@@ -96,7 +97,7 @@ const publicRepairs = REPAIRS.map(({ steps, ...rest }) => ({ ...rest, steps: ste
 
 const publicBloat = { groups: BLOATWARE.GROUPS, apps: BLOATWARE.APPS.map(({ preRemove, ...rest }) => ({ ...rest, canReinstall: !!rest.storeId })) };
 
-ipcMain.handle("catalog", () => ({ cleanup: publicCleanup, tweaks: publicTweaks, apps: APPS, repairs: publicRepairs, bloat: publicBloat, mock: backend.isMock }));
+ipcMain.handle("catalog", () => ({ cleanup: publicCleanup, tweaks: publicTweaks, apps: APPS, repairs: publicRepairs, bloat: publicBloat, profiles: profiles.PROFILES, mock: backend.isMock }));
 ipcMain.handle("bloat:status", () => backend.bloatStatus().catch((e) => ({ error: e.message })));
 ipcMain.handle("bloat:remove", (_e, ids, opts = {}) => exclusive(async () => {
   const list = validIds(ids, BLOATWARE.APPS);
@@ -121,6 +122,63 @@ ipcMain.handle("repairs:run", (_e, id, opts = {}) => exclusive(async () => {
   }
   return backend.runRepair(rid, log, (p) => send("toolbox:progress", { kind: "repair", id: rid, data: p }));
 }));
+// ---- Perfiles de un clic
+ipcMain.handle("profiles:plan", (_e, id) => exclusive(() => profiles.planProfile(backend, id)));
+ipcMain.handle("profiles:apply", (_e, id, sel = {}, opts = {}) => exclusive(async () => {
+  const p = profiles.PROFILES.find((x) => x.id === id);
+  if (!p) return { error: "unknown" };
+  // Solo lo que el perfil incluye; la interfaz puede desmarcar, nunca añadir
+  const pick = (kind) => (Array.isArray(sel[kind]) ? sel[kind] : []).filter((x) => p[kind].includes(x));
+  const chosen = { tweaks: pick("tweaks"), bloat: pick("bloat"), cleanup: pick("cleanup") };
+  if (opts.restorePoint) {
+    const rp = await backend.createRestorePoint(log, { allowEnable: !!opts.allowEnableRestore });
+    if (!rp.ok) return { aborted: true, restorePoint: rp };
+  }
+  log(`▶ Aplicando el perfil «${p.name}»`);
+  const r = await profiles.applyProfile(backend, chosen, log, (ph) => send("toolbox:progress", { kind: "profile", id, data: ph }));
+  log(`✔ Perfil «${p.name}» aplicado.`);
+  return r;
+}));
+
+// ---- Desinstalador completo
+let programCache = new Map();
+let leftoverCache = [];
+let uninstallSignal = null;
+ipcMain.handle("uninstall:list", async () => {
+  try {
+    const list = await backend.programsList();
+    programCache = new Map(list.map((p) => [p.key, p]));
+    return list.map(({ uninstall, quiet, ...rest }) => rest);
+  } catch (e) { return { error: e.message }; }
+});
+ipcMain.handle("uninstall:run", (_e, key) => exclusive(async () => {
+  const entry = programCache.get(key);
+  if (!entry) return { error: "unknown" };
+  uninstallSignal = { aborted: false };
+  const result = await backend.programUninstall(entry, log, { signal: uninstallSignal });
+  uninstallSignal = null;
+  leftoverCache = [];
+  if (result.uninstalled) {
+    log("Buscando restos…");
+    const others = [...programCache.values()].filter((p) => p.key !== key);
+    leftoverCache = (await backend.leftoversScan(entry, others)).map((l, i) => ({ ...l, id: `l${i}` }));
+    log(leftoverCache.length ? `Encontrados ${leftoverCache.length} restos.` : "✔ No quedan restos.");
+    programCache.delete(key);
+  }
+  return { ...result, leftovers: leftoverCache };
+}));
+ipcMain.handle("uninstall:stopWaiting", () => { if (uninstallSignal) uninstallSignal.aborted = true; return true; });
+ipcMain.handle("uninstall:clean", (_e, ids) => exclusive(async () => {
+  const items = leftoverCache.filter((l) => Array.isArray(ids) && ids.includes(l.id));
+  const results = await backend.leftoversClean(items, path.join(app.getPath("userData"), "backups"), log);
+  leftoverCache = [];
+  return { results };
+}));
+ipcMain.handle("system:openBackups", () => {
+  const dir = path.join(app.getPath("userData"), "backups");
+  fs.mkdirSync(dir, { recursive: true });
+  return shell.openPath(dir);
+});
 ipcMain.handle("system:openLogs", () => shell.openPath(path.dirname(logPath())));
 ipcMain.handle("system:restartExplorer", () => exclusive(() => backend.restartExplorer(log)));
 

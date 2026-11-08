@@ -18,7 +18,7 @@
       <button class="nav-item" data-page="cleanup"><span class="nav-ico">🧹</span>Limpieza</button>
       <button class="nav-item" data-page="repairs"><span class="nav-ico">🩺</span>Reparar</button>
       <button class="nav-item" data-page="apps"><span class="nav-ico">📦</span>Instalar apps</button>
-      <button class="nav-item" data-page="bloat"><span class="nav-ico">🧽</span>Quitar apps</button>
+      <button class="nav-item" data-page="bloat"><span class="nav-ico">🧽</span>Desinstalar</button>
       <button class="nav-item" data-page="tweaks"><span class="nav-ico">🎛️</span>Ajustes</button>
       <div class="sidebar-spacer"></div>
       <div class="demo-pill hidden" id="demo-pill" title="No estás en Windows: ToolBox simula todo y no toca nada.">Modo demostración</div>
@@ -46,6 +46,14 @@
               <dt>Sistema</dt><dd>—</dd>
             </dl>
           </div>
+        </div>
+
+        <h2 class="section-title">Perfiles de un clic</h2>
+        <p class="muted section-sub">Aplican de una vez un conjunto de ajustes, quitan apps y limpian. Antes verás exactamente qué va a cambiar.</p>
+        <div class="grid-3" id="profile-cards"></div>
+        <div class="card profile-progress hidden" id="profile-progress">
+          <div class="small" id="profile-progress-text">Aplicando…</div>
+          <div class="meter"><div class="meter-fill" id="profile-progress-fill"></div></div>
         </div>
 
         <h2 class="section-title">¿Qué quieres hacer?</h2>
@@ -136,10 +144,35 @@
       <!-- QUITAR APPS (bloatware) -->
       <section class="page" id="page-bloat">
         <header class="page-head">
-          <h1>🧽 Quitar apps</h1>
-          <p class="lead">Windows trae apps preinstaladas que mucha gente no usa. Quitarlas libera espacio y elimina publicidad.
-            <strong>Se pueden volver a instalar</strong> cuando quieras desde aquí mismo.</p>
+          <h1>🧽 Desinstalar</h1>
+          <p class="lead">Quita programas <strong>sin dejar restos</strong> y las apps que Windows trae de serie.</p>
         </header>
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab" data-tab="programs">Programas instalados</button>
+          <button class="tab" role="tab" data-tab="winapps">Apps de Windows</button>
+        </div>
+
+        <div class="tab-panel" id="tab-programs">
+          <p class="muted tab-lead">Primero se abre el desinstalador oficial del programa. Cuando termine, ToolBox busca lo que
+            haya dejado (carpetas y registro) y te lo enseña <strong>antes de borrar nada</strong>. Las carpetas van a la Papelera
+            y del registro se guarda una copia.</p>
+          <div class="toolbar">
+            <input type="search" id="program-search" placeholder="Buscar programa…" aria-label="Buscar programa">
+            <span class="muted" id="program-count">Cargando programas…</span>
+          </div>
+          <div class="card uninstall-banner hidden" id="uninstall-banner">
+            <div>
+              <strong id="uninstall-banner-title">Desinstalando…</strong>
+              <div class="muted small">Sigue los pasos en la ventana del desinstalador. Si la has cerrado o cancelado, pulsa «Dejar de esperar».</div>
+            </div>
+            <button class="btn" id="uninstall-stop">Dejar de esperar</button>
+          </div>
+          <div class="program-list" id="program-list"></div>
+        </div>
+
+        <div class="tab-panel hidden" id="tab-winapps">
+        <p class="muted tab-lead">Windows trae apps preinstaladas que mucha gente no usa. Quitarlas libera espacio y elimina publicidad.
+          <strong>Se pueden volver a instalar</strong> cuando quieras desde aquí mismo.</p>
         <div class="toolbar">
           <button class="btn" id="bloat-recommended">Marcar las recomendadas</button>
           <span class="muted" id="bloat-status">Comprobando qué apps tienes…</span>
@@ -148,6 +181,7 @@
         <div class="footer-bar">
           <span id="bloat-total">Nada seleccionado</span>
           <button class="btn primary" id="bloat-remove-btn" disabled>Quitar</button>
+        </div>
         </div>
       </section>
 

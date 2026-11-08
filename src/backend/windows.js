@@ -454,4 +454,5 @@ module.exports = {
   wingetAvailable, appsInstalled, appsInstall, appsUpgradeAll,
   runRepair, reboot,
   bloatStatus, bloatRemove, bloatReinstall,
+  ...require("./uninstaller"),
 };

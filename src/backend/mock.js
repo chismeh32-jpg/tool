@@ -167,11 +167,42 @@ async function bloatReinstall(ids, log, onItem) {
   return results;
 }
 
+// ---- Desinstalador (demo)
+let demoPrograms = [
+  { key: "HKLM\\DEMO\\Discord", name: "Discord", publisher: "Discord Inc.", version: "1.0.9170", date: "20260912", sizeKB: 412000, location: "C:\\Users\\tú\\AppData\\Local\\Discord" },
+  { key: "HKLM\\DEMO\\Steam", name: "Steam", publisher: "Valve Corporation", version: "2.10.91.91", date: "20250301", sizeKB: 0, location: "C:\\Program Files (x86)\\Steam" },
+  { key: "HKLM\\DEMO\\McAfee", name: "McAfee WebAdvisor", publisher: "McAfee, LLC", version: "4.1.1.796", date: "20240105", sizeKB: 96000, location: "C:\\Program Files\\McAfee\\WebAdvisor" },
+  { key: "HKLM\\DEMO\\WinRAR", name: "WinRAR 7.01 (64-bit)", publisher: "win.rar GmbH", version: "7.01.0", date: "20250620", sizeKB: 8900, location: "C:\\Program Files\\WinRAR\\" },
+  { key: "HKLM\\DEMO\\Candy", name: "Juego de caramelos 3", publisher: "King", version: "1.0", date: "20230411", sizeKB: 310000, location: "" },
+];
+async function programsList() { await wait(500); return demoPrograms.slice().sort((a, b) => a.name.localeCompare(b.name, "es")); }
+async function programUninstall(entry, log, { signal = {} } = {}) {
+  log(`▶ Abriendo el desinstalador de ${entry.name}… (demo)`);
+  for (let i = 0; i < 12; i++) { if (signal.aborted) return { uninstalled: false, aborted: true }; await wait(250); }
+  demoPrograms = demoPrograms.filter((p) => p.key !== entry.key);
+  log(`✔ ${entry.name} desinstalado.`);
+  return { uninstalled: true, exitCode: 0 };
+}
+async function leftoversScan(entry) {
+  await wait(700);
+  const n = entry.name.split(" ")[0];
+  return [
+    { kind: "folder", path: `C:\\Users\\tú\\AppData\\Roaming\\${n}`, bytes: 184 * MB, reason: "Carpeta con el nombre del programa" },
+    { kind: "folder", path: `C:\\ProgramData\\${n}`, bytes: 12 * MB, reason: "Carpeta con el nombre del programa" },
+    { kind: "key", path: `HKCU\\Software\\${n}`, reason: "Configuración del programa en el registro" },
+  ];
+}
+async function leftoversClean(items, backupDir, log) {
+  await wait(600);
+  return items.map((i) => { log(`✔ ${i.kind === "folder" ? "Carpeta enviada a la Papelera" : "Clave borrada (con copia)"}: ${i.path}`); return { ...i, ok: true }; });
+}
+
 async function reboot(log) { log("Reinicio solicitado (demo: no se reinicia nada)."); return { ok: true }; }
 
 module.exports = {
   runRepair, reboot,
   bloatStatus, bloatRemove, bloatReinstall,
+  programsList, programUninstall, leftoversScan, leftoversClean,
   systemInfo, restoreStatus, createRestorePoint, restartExplorer,
   cleanupScan, cleanupRun,
   tweaksStatus, tweakSet,

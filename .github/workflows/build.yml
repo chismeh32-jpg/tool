@@ -42,5 +42,7 @@ jobs:
           node-version: 22
       - name: Probar «Quitar apps» en Windows real
         run: node test/windows-bloat.js
+      - name: Probar desinstalador completo y perfiles en Windows real
+        run: node test/windows-uninstall.js
       - name: Probar reparaciones en Windows real
         run: node test/windows-repairs.js

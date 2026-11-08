@@ -7,11 +7,11 @@ antes de hacer nada te explica **qué hace**, **qué notarás después** y te pi
 
 | Sección | Para qué sirve |
 |---|---|
-| 🏠 **Inicio** | Espacio libre en disco, datos de tu PC y botón para crear un punto de restauración. |
+| 🏠 **Inicio** | Espacio en disco, datos de tu PC, **perfiles de un clic** (Recomendado, Gamer, Privacidad) y punto de restauración. |
 | 🧹 **Limpieza** | Analiza (sin borrar) y luego limpia: temporales, descargas de Windows Update, caché de Optimización de distribución, miniaturas, informes de errores, papelera y **actualizaciones antiguas de Windows** (DISM). |
 | 📦 **Instalar apps** | Instala varios programas de golpe con `winget` (el instalador oficial de Microsoft) y actualiza todos los que tengas. |
 | 🩺 **Reparar** | Arreglos oficiales de Windows explicados por síntoma, con progreso en directo. |
-| 🧽 **Quitar apps** | Quita las apps preinstaladas de Windows (publicidad, Xbox, extras) y permite reinstalarlas. |
+| 🧽 **Desinstalar** | Desinstala programas sin dejar restos y quita las apps preinstaladas de Windows (con opción de reinstalarlas). |
 | 🎛️ **Ajustes** | Interruptores para quitar anuncios, mostrar extensiones, menú clásico, modo oscuro, ratón sin aceleración… **Todos se pueden deshacer.** |
 
 Cada limpieza viene marcada como **Seguro** o **Precaución**, y antes de los cambios importantes se ofrece un
@@ -30,6 +30,15 @@ Cada limpieza viene marcada como **Seguro** o **Precaución**, y antes de los ca
 > los necesita para limpiar carpetas del sistema y cambiar ajustes.
 
 ## Novedades
+
+**0.5.0 – Perfiles y desinstalación completa**
+- **Perfiles de un clic** en Inicio: ⭐ Recomendado, 🎮 Gamer y 🔒 Privacidad. Antes de aplicar enseñan solo lo que
+  cambiaría en tu PC (lo ya hecho aparece tachado) y puedes desmarcar lo que no quieras.
+- **Desinstalar sin dejar restos**: ToolBox abre el desinstalador oficial, espera a que termine de verdad y luego busca
+  carpetas y claves del registro que el programa haya dejado. Solo propone coincidencias exactas, nunca carpetas
+  compartidas ni de otros programas; las carpetas van a la Papelera y del registro se guarda copia (.reg).
+- La sección «Quitar apps» pasa a ser **Desinstalar**, con dos pestañas: *Programas instalados* y *Apps de Windows*.
+- Al desinstalar ToolBox se borran también sus datos (registros y copias), sin dejar restos.
 
 **0.4.0 – Quitar apps**
 - Nueva sección **🧽 Quitar apps** con 34 apps preinstaladas de Windows, en tres grupos: publicidad y extras de

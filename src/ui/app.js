@@ -27,6 +27,8 @@
     bloatStatus: null, // id -> { installed, provisioned }
     bloatSel: new Set(),
     bloatState: {},    // id -> { status, reason }
+    programs: null,    // lista de programas instalados
+    programQuery: "",
   };
 
   // ------------------------------------------------------------ Utilidades
@@ -132,7 +134,7 @@
     $(".content").scrollTop = 0;
     if (page === "tweaks") loadTweaks();
     if (page === "apps" && !state.appsChecked) checkApps();
-    if (page === "bloat" && !state.bloatStatus) loadBloat();
+    if (page === "bloat" && !state.programs) loadPrograms();
   }
   document.querySelectorAll(".nav-item[data-page]").forEach((b) => b.addEventListener("click", () => go(b.dataset.page)));
   document.querySelectorAll("[data-goto]").forEach((b) => b.addEventListener("click", () => {
@@ -335,6 +337,7 @@
     if (kind === "scan") { state.sizes[id] = data; renderCleanup(); }
     if (kind === "clean") { state.cleanState[id] = data; renderCleanup(); }
     if (kind === "bloat") { state.bloatState[id] = data; renderBloat(); }
+    if (kind === "profile") updateProfileProgress(id, data);
     if (kind === "repair") {
       state.repairState[id] = { ...(state.repairState[id] || {}), running: true, ...data };
       updateRepairProgress(id);
@@ -561,6 +564,206 @@
     else toast(`${r.name}: no se pudo completar. Mira el resultado y la Actividad.`, "error");
   }
 
+  // ------------------------------------------------------------ Perfiles de un clic
+  const PHASE_TEXT = { tweaks: "Aplicando ajustes", bloat: "Quitando apps de Windows", cleanup: "Limpiando" };
+
+  function renderProfiles() {
+    const box = $("#profile-cards");
+    box.innerHTML = "";
+    for (const p of state.catalog.profiles) {
+      const card = el("div", "profile-card");
+      card.append(el("span", "action-ico", p.icon), el("span", "who", p.who), el("strong", "", p.name), el("p", "", p.summary));
+      const b = el("button", "btn primary", "Ver qué cambia");
+      b.dataset.profileBtn = p.id;
+      b.disabled = state.busy;
+      b.addEventListener("click", () => openProfile(p));
+      card.append(b);
+      box.append(card);
+    }
+  }
+
+  async function openProfile(p) {
+    const plan = await api.profilePlan(p.id);
+    if (busyGuard(plan)) return;
+    if (!plan || plan.error) { toast("No se pudo preparar el perfil.", "error"); return; }
+    const name = (kind, id) => {
+      if (kind === "tweaks") return state.catalog.tweaks.find((t) => t.id === id).name;
+      if (kind === "bloat") return state.catalog.bloat.apps.find((a) => a.id === id).name;
+      return state.catalog.cleanup.find((c) => c.id === id).name;
+    };
+    const body = el("div");
+    body.append(el("p", "", p.summary));
+    const inputs = [];
+    const group = (title, kind, items, isDone, extra) => {
+      if (!items.length) return;
+      const g = el("div", "plan-group");
+      g.append(el("h3", "", title));
+      for (const it of items) {
+        const done = isDone(it);
+        const row = el("label", "plan-row" + (done ? " done" : ""));
+        const cb = el("input", "check");
+        cb.type = "checkbox";
+        cb.checked = !done;
+        cb.disabled = done;
+        if (!done) inputs.push({ kind, id: it.id, cb });
+        row.append(cb, el("span", "", name(kind, it.id)),
+          el("span", "muted", done ? (kind === "tweaks" ? "ya activado" : "no la tienes") : extra(it)));
+        g.append(row);
+      }
+      body.append(g);
+    };
+    group("Ajustes que se activan", "tweaks", plan.tweaks, (t) => t.already, () => "");
+    group("Apps de Windows que se quitan", "bloat", plan.bloat, (b) => !b.present, () => "se puede reinstalar");
+    group("Limpieza", "cleanup", plan.cleanup, () => false, (c) => (c.bytes > 0 ? formatBytes(c.bytes) : ""));
+    if (!inputs.length) {
+      toast(`Tu PC ya tiene todo lo del perfil «${p.name}». 👍`, "ok");
+      return;
+    }
+    const rp = restorePointOption(true);
+    body.append(rp.node);
+    body.append(el("p", "muted small", "Todo se puede deshacer: los ajustes desde «Ajustes» y las apps con «Reinstalar» en «Desinstalar → Apps de Windows»."));
+    if (!(await confirmDialog({ title: `${p.icon} Perfil «${p.name}»`, body, ok: "Aplicar perfil" }))) return;
+
+    const sel = { tweaks: [], bloat: [], cleanup: [] };
+    inputs.filter((i) => i.cb.checked).forEach((i) => sel[i.kind].push(i.id));
+    if (!sel.tweaks.length && !sel.bloat.length && !sel.cleanup.length) return;
+    $("#profile-progress").classList.remove("hidden");
+    $("#profile-progress-text").textContent = `Aplicando «${p.name}»…`;
+    $("#profile-progress-fill").style.width = "0%";
+    const r = await withRestorePoint((o) => api.profileApply(p.id, sel, o), { restorePoint: rp.value }, "aplicar el perfil");
+    $("#profile-progress").classList.add("hidden");
+    if (r === null || busyGuard(r)) return;
+    if (r.error) { toast("No se pudo aplicar el perfil: " + r.error, "error"); return; }
+    const freed = (r.cleanup || []).reduce((s, x) => s + (x.freed || 0), 0);
+    const fails = (r.tweaks || []).filter((x) => !x.ok).length + (r.bloat || []).filter((x) => x.status === "error").length;
+    let msg = `Perfil «${p.name}» aplicado.`;
+    if (freed) msg += ` Liberados ${formatBytes(freed)}.`;
+    if (fails) msg += ` ${fails} cambio${fails > 1 ? "s" : ""} no se pudo aplicar (mira la Actividad).`;
+    if (r.logout) msg += " Algunos cambios se verán al volver a iniciar sesión.";
+    toast(msg, fails ? "error" : "ok");
+    // Lo aplicado cambia lo que muestran otras pantallas
+    state.bloatStatus = null;
+    state.scanned = false;
+    state.sizes = {};
+    loadSystem();
+  }
+
+  function updateProfileProgress(id, ph) {
+    const order = ["tweaks", "bloat", "cleanup"];
+    const share = 100 / order.length;
+    const pct = order.indexOf(ph.phase) * share + (ph.total ? (ph.done / ph.total) * share : 0);
+    $("#profile-progress-text").textContent = `${PHASE_TEXT[ph.phase]}… (${ph.done}/${ph.total})`;
+    $("#profile-progress-fill").style.width = Math.round(pct) + "%";
+  }
+
+  // ------------------------------------------------------------ Desinstalar: pestañas
+  document.querySelectorAll(".tab[data-tab]").forEach((t) => t.addEventListener("click", () => {
+    document.querySelectorAll(".tab[data-tab]").forEach((x) => x.classList.toggle("active", x === t));
+    $("#tab-programs").classList.toggle("hidden", t.dataset.tab !== "programs");
+    $("#tab-winapps").classList.toggle("hidden", t.dataset.tab !== "winapps");
+    if (t.dataset.tab === "winapps" && !state.bloatStatus) loadBloat();
+    if (t.dataset.tab === "programs" && !state.programs) loadPrograms();
+  }));
+
+  // ------------------------------------------------------------ Desinstalar: programas
+  const formatDate = (d) => (/^\d{8}$/.test(d || "") ? `${d.slice(6, 8)}/${d.slice(4, 6)}/${d.slice(0, 4)}` : "");
+
+  async function loadPrograms() {
+    $("#program-count").textContent = "Cargando programas…";
+    const list = await api.programsList();
+    if (!Array.isArray(list)) { $("#program-count").textContent = "No se pudo leer la lista de programas."; return; }
+    state.programs = list;
+    renderPrograms();
+  }
+
+  function renderPrograms() {
+    const box = $("#program-list");
+    box.innerHTML = "";
+    const q = state.programQuery.trim().toLowerCase();
+    const list = state.programs.filter((p) => !q || p.name.toLowerCase().includes(q) || (p.publisher || "").toLowerCase().includes(q));
+    $("#program-count").textContent = `${state.programs.length} programas instalados` + (q ? ` · ${list.length} coinciden` : "");
+    for (const p of list) {
+      const row = el("div", "program-row");
+      const info = el("div");
+      info.append(el("strong", "", p.name));
+      const meta = [p.publisher, p.version && `versión ${p.version}`, formatDate(p.date) && `instalado el ${formatDate(p.date)}`].filter(Boolean).join(" · ");
+      info.append(el("div", "meta", meta));
+      const b = el("button", "btn btn-small", "Desinstalar");
+      b.dataset.uninstallKey = p.key;
+      b.disabled = state.busy;
+      b.addEventListener("click", () => uninstallProgram(p));
+      row.append(info, el("span", "size", p.sizeKB > 0 ? formatBytes(p.sizeKB * 1024) : ""), b);
+      box.append(row);
+    }
+    if (!list.length) box.append(el("p", "muted", "No hay programas con ese nombre."));
+  }
+  $("#program-search").addEventListener("input", (e) => { state.programQuery = e.target.value; renderPrograms(); });
+
+  async function uninstallProgram(p) {
+    const body = el("div");
+    body.append(el("p", "", "Así funciona:"));
+    const ol = el("ol", "steps");
+    ["Se abre el desinstalador oficial del programa: sigue sus pasos (normalmente «Siguiente» y «Desinstalar»).",
+      "Cuando termine, ToolBox busca carpetas y entradas del registro que haya dejado.",
+      "Te enseña lo que encuentre y tú eliges qué borrar. Nada se borra sin preguntarte."].forEach((t) => ol.append(el("li", "", t)));
+    body.append(ol);
+    if (!(await confirmDialog({ title: `¿Desinstalar ${p.name}?`, body, ok: "Desinstalar" }))) return;
+
+    $("#uninstall-banner").classList.remove("hidden");
+    $("#uninstall-banner-title").textContent = `Desinstalando ${p.name}…`;
+    const r = await api.programUninstall(p.key);
+    $("#uninstall-banner").classList.add("hidden");
+    if (busyGuard(r)) return;
+    if (r.error) { toast("No se pudo desinstalar: " + r.error, "error"); return; }
+    if (!r.uninstalled) {
+      toast(r.aborted ? `Hemos dejado de esperar. Si ${p.name} se desinstaló, vuelve a abrir esta lista.`
+        : `${p.name} sigue instalado (¿se canceló el desinstalador?).`, "info");
+      await loadPrograms();
+      return;
+    }
+    state.programs = state.programs.filter((x) => x.key !== p.key);
+    renderPrograms();
+    if (!r.leftovers.length) { toast(`${p.name} desinstalado sin dejar restos. ✨`, "ok"); return; }
+    await offerLeftovers(p, r.leftovers);
+  }
+  $("#uninstall-stop").addEventListener("click", () => api.stopWaitingUninstall());
+
+  async function offerLeftovers(p, leftovers) {
+    const body = el("div");
+    body.append(el("p", "", `${p.name} se ha desinstalado, pero ha dejado esto. Marca lo que quieras borrar:`));
+    const inputs = [];
+    const group = (title, items) => {
+      if (!items.length) return;
+      const g = el("div", "plan-group");
+      g.append(el("h3", "", title));
+      for (const it of items) {
+        const row = el("label", "plan-row");
+        const cb = el("input", "check");
+        cb.type = "checkbox";
+        cb.checked = true;
+        inputs.push({ id: it.id, cb });
+        const txt = el("span");
+        txt.append(el("div", "leftover-path", it.path), el("div", "muted", it.reason));
+        row.append(cb, txt, el("span", "muted", it.bytes ? formatBytes(it.bytes) : ""));
+        g.append(row);
+      }
+      body.append(g);
+    };
+    group("Carpetas (irán a la Papelera)", leftovers.filter((l) => l.kind === "folder"));
+    group("Registro (se guarda copia antes de borrar)", leftovers.filter((l) => l.kind === "key"));
+    body.append(el("p", "muted small", "Solo se proponen carpetas y claves con el nombre exacto del programa, y nunca algo que use otro programa instalado."));
+    if (!(await confirmDialog({ title: "Restos encontrados", body, ok: "Borrar lo marcado" }))) return;
+    const ids = inputs.filter((i) => i.cb.checked).map((i) => i.id);
+    if (!ids.length) return;
+    const r = await api.cleanLeftovers(ids);
+    if (busyGuard(r)) return;
+    const ok = r.results.filter((x) => x.ok).length;
+    const bad = r.results.length - ok;
+    const hasKeys = r.results.some((x) => x.kind === "key" && x.ok);
+    toast(bad ? `${ok} restos borrados, ${bad} no se pudieron borrar (quizá estén en uso).` : `${p.name} eliminado por completo. ✨`,
+      bad ? "error" : "ok", hasKeys ? { label: "Ver copias", run: () => api.openBackups() } : undefined);
+  }
+
   // ------------------------------------------------------------ Quitar apps
   const bloatPresent = (id) => {
     const st = state.bloatStatus && state.bloatStatus[id];
@@ -766,6 +969,7 @@
     $("#restore-btn").disabled = state.busy;
     $("#bloat-remove-btn").disabled = state.busy || !state.bloatSel.size;
     document.querySelectorAll("[data-bloat-reinstall]").forEach((b) => { b.disabled = state.busy; });
+    document.querySelectorAll("[data-profile-btn], [data-uninstall-key]").forEach((b) => { b.disabled = state.busy; });
     document.querySelectorAll("[data-repair-btn]").forEach((b) => {
       b.disabled = state.busy || !!(state.repairState[b.dataset.repairBtn] || {}).running;
     });
@@ -780,6 +984,7 @@
     renderCats();
     renderApps();
     renderRepairs();
+    renderProfiles();
     refreshButtons();
     loadSystem();
   })();
