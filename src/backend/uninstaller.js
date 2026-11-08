@@ -215,9 +215,17 @@ async function leftoversClean(items, backupDir, log) {
     }
     const del = await runProcess("reg.exe", ["delete", k.path, "/f"]);
     if (del.code === 0 && k.parent) {
-      // Si la clave del fabricante se queda vacía, también sobra
-      const q = await runProcess("reg.exe", ["query", k.parent]);
-      if (q.code === 0 && q.output.filter((l) => /\S/.test(l)).length <= 1) await runProcess("reg.exe", ["delete", k.parent, "/f"]);
+      // Si la clave del fabricante se queda VACÍA (sin valores ni subclaves), también sobra.
+      // DeleteSubKey no es recursivo: Windows lo rechaza si queda algo dentro, así que nunca
+      // puede llevarse por delante la configuración de otro programa del mismo fabricante.
+      const [h, s] = [k.parent.slice(0, k.parent.indexOf("\\")), k.parent.slice(k.parent.indexOf("\\") + 1)];
+      await runPowerShell(String.raw`
+        $root = TB-Root ${ps(h)}; $sub = ${ps(s)}
+        $pk = $root.OpenSubKey($sub)
+        if ($pk) {
+          $empty = ($pk.SubKeyCount -eq 0 -and $pk.ValueCount -eq 0); $pk.Close()
+          if ($empty) { try { $root.DeleteSubKey($sub, $false) } catch { } }
+        }`);
     }
     log(del.code === 0 ? `✔ Clave borrada (copia en ${path.basename(file)}): ${k.path}` : `✖ No se pudo borrar ${k.path}`);
     results.push({ ...k, ok: del.code === 0, backup: file });
