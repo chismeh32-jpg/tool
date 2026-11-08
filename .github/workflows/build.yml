@@ -69,7 +69,7 @@ jobs:
         # y comprueba si su interfaz carga. No hace fallar el trabajo: solo informa.
         continue-on-error: true
         run: |
-          npx --no-install electron-builder --win --dir -c.win.requestedExecutionLevel=requireAdministrator -c.electronFuses.runAsNode=true -c.electronFuses.enableNodeOptionsEnvironmentVariable=true -c.electronFuses.enableNodeCliInspectArguments=true -c.electronFuses.enableEmbeddedAsarIntegrityValidation=false -c.electronFuses.onlyLoadAppFromAsar=false -c.directories.output=dist-diag
+          npx --no-install electron-builder --win --dir '-c.win.requestedExecutionLevel=requireAdministrator' '-c.electronFuses.runAsNode=true' '-c.electronFuses.enableNodeOptionsEnvironmentVariable=true' '-c.electronFuses.enableNodeCliInspectArguments=true' '-c.electronFuses.enableEmbeddedAsarIntegrityValidation=false' '-c.electronFuses.onlyLoadAppFromAsar=false' '-c.directories.output=dist-diag'
           $logDir = Join-Path $env:APPDATA 'ToolBox\logs'
           Remove-Item $logDir -Recurse -Force -ErrorAction SilentlyContinue
           Start-Process dist-diag/win-unpacked/ToolBox.exe -ArgumentList '--toolbox-elevated'
