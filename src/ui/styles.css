@@ -232,6 +232,20 @@ input[type=checkbox].check { width: 18px; height: 18px; accent-color: var(--acce
 .uninstall-banner { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 14px; border-color: var(--accent); }
 .leftover-path { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
 
+/* ---------- Gráficos ---------- */
+.gfx-section { margin-bottom: 22px; }
+.gfx-section > h2 { font-size: 16px; margin: 0 0 4px; display: flex; gap: 8px; align-items: center; }
+.gfx-section > p { margin: 0 0 10px; color: var(--muted); line-height: 1.5; }
+.gfx-hw { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.gfx-hw .card { padding: 12px 16px; flex: 1; min-width: 230px; }
+.gfx-hw .card strong { display: block; }
+.gfx-presets { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 0; }
+.gfx-presets .btn { white-space: normal; text-align: left; }
+.gfx-presets .btn small { display: block; font-weight: 400; opacity: .85; }
+.gfx-value { font-weight: 600; white-space: nowrap; }
+.gfx-value.good { color: var(--ok); }
+.guide ol { margin: 8px 0 0; padding-left: 20px; line-height: 1.6; }
+
 /* ---------- Quitar apps ---------- */
 .bloat-group { margin-bottom: 24px; }
 .bloat-group > h2 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }

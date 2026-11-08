@@ -12,6 +12,7 @@ antes de hacer nada te explica **qué hace**, **qué notarás después** y te pi
 | 📦 **Instalar apps** | Instala varios programas de golpe con `winget` (el instalador oficial de Microsoft) y actualiza todos los que tengas. |
 | 🩺 **Reparar** | Arreglos oficiales de Windows explicados por síntoma, con progreso en directo. |
 | 🧽 **Desinstalar** | Desinstala programas sin dejar restos y quita las apps preinstaladas de Windows (con opción de reinstalarlas). |
+| 🖥️ **Gráficos** | Ajustes de NVIDIA (NVAPI) y AMD (ADLX) con perfiles y vuelta atrás, ajustes gráficos de Windows y guías para quitar notificaciones. |
 | 🎛️ **Ajustes** | Interruptores para quitar anuncios, mostrar extensiones, menú clásico, modo oscuro, ratón sin aceleración… **Todos se pueden deshacer.** |
 
 Cada limpieza viene marcada como **Seguro** o **Precaución**, y antes de los cambios importantes se ofrece un
@@ -30,6 +31,17 @@ Cada limpieza viene marcada como **Seguro** o **Precaución**, y antes de los ca
 > los necesita para limpiar carpetas del sistema y cambiar ajustes.
 
 ## Novedades
+
+**0.6.0 – Gráficos**
+- Nueva sección **🖥️ Gráficos** que detecta tu procesador y tus tarjetas gráficas.
+- **NVIDIA**: lee y cambia los ajustes globales del Panel de control (modo de energía, baja latencia, calidad del
+  filtrado) con NVAPI, la API oficial del driver. Perfiles «Mínima latencia» y «Equilibrado», «Volver a como lo tenía»
+  y «Valores de fábrica de NVIDIA».
+- **AMD**: Anti-Lag, Image Sharpening, Chill, Boost y Enhanced Sync de Adrenalin con ADLX, el SDK oficial de AMD.
+- **Windows**: programación de GPU por hardware, optimizaciones para juegos en ventana y modo de juego.
+- Guías para quitar notificaciones, anuncios y superposiciones de NVIDIA App y AMD Software, y opción de desactivar
+  las tareas de telemetría de NVIDIA.
+- Los ayudantes nativos (`native/`) se compilan en GitHub Actions con los SDK oficiales y van dentro del instalador.
 
 **0.5.0 – Perfiles y desinstalación completa**
 - **Perfiles de un clic** en Inicio: ⭐ Recomendado, 🎮 Gamer y 🔒 Privacidad. Antes de aplicar enseñan solo lo que

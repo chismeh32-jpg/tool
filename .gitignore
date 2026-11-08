@@ -1,2 +1,5 @@
 node_modules/
 dist/
+native/sdk/
+native/bin/
+native/obj/

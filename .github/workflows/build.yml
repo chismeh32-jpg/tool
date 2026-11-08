@@ -18,8 +18,25 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Compilar ayudantes de NVIDIA (NVAPI) y AMD (ADLX)
+        run: |
+          git clone --depth 1 https://github.com/NVIDIA/nvapi native/sdk/nvapi
+          git clone --depth 1 https://github.com/GPUOpen-LibrariesAndSDKs/ADLX native/sdk/ADLX
+          New-Item -ItemType Directory -Force native/bin, native/obj | Out-Null
+          cl /nologo /EHsc /O2 /MT /utf-8 /I native/sdk/nvapi native/nvidia/toolbox-nv.cpp native/sdk/nvapi/amd64/nvapi64.lib /Fo:native/obj/ /Fe:native/bin/toolbox-nv.exe
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          cl /nologo /EHsc /O2 /MT /utf-8 /std:c++17 /I native/sdk/ADLX native/amd/toolbox-amd.cpp native/sdk/ADLX/SDK/ADLXHelper/Windows/Cpp/ADLXHelper.cpp native/sdk/ADLX/SDK/Platform/Windows/WinAPIs.cpp /Fo:native/obj/ /Fe:native/bin/toolbox-amd.exe
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Copy-Item native/sdk/nvapi/License.txt native/bin/NVAPI-LICENSE.txt
+          Get-ChildItem native/bin
+
       - name: Probar en Windows real
         run: npm run test:windows
+
+      - name: Probar «Gráficos» en Windows real
+        run: node test/windows-graphics.js
 
       - name: Crear instalador
         # Reintenta una vez si falla la descarga de Electron/NSIS (fallo de red puntual)

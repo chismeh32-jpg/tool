@@ -135,6 +135,7 @@
     if (page === "tweaks") loadTweaks();
     if (page === "apps" && !state.appsChecked) checkApps();
     if (page === "bloat" && !state.programs) loadPrograms();
+    if (page === "graphics") loadGfx();
   }
   document.querySelectorAll(".nav-item[data-page]").forEach((b) => b.addEventListener("click", () => go(b.dataset.page)));
   document.querySelectorAll("[data-goto]").forEach((b) => b.addEventListener("click", () => {
@@ -764,6 +765,228 @@
       bad ? "error" : "ok", hasKeys ? { label: "Ver copias", run: () => api.openBackups() } : undefined);
   }
 
+  // ------------------------------------------------------------ Gráficos
+  async function loadGfx() {
+    const st = await api.gfxState();
+    if (busyGuard(st)) return;
+    if (!st || st.error) { $("#gfx-root").innerHTML = ""; $("#gfx-root").append(el("p", "muted", "No se pudo leer la información gráfica.")); return; }
+    state.gfx = st;
+    renderGfx();
+  }
+
+  function gfxSection(title, intro) {
+    const sec = el("div", "gfx-section");
+    const h = el("h2");
+    h.append(title);
+    sec.append(h);
+    if (intro) sec.append(el("p", "", intro));
+    return sec;
+  }
+
+  function settingRow(name, summary, warn, right) {
+    const row = el("div", "tweak");
+    const info = el("div");
+    info.append(el("h3", "", name), el("p", "", summary));
+    if (warn) info.append(el("div", "app-note", "⚠ " + warn));
+    row.append(info, right);
+    return row;
+  }
+
+  function switchFor(checked, disabled, onChange, label) {
+    const sw = el("label", "switch");
+    const input = el("input");
+    input.type = "checkbox";
+    input.setAttribute("role", "switch");
+    input.setAttribute("aria-label", label);
+    input.checked = checked;
+    input.disabled = disabled;
+    input.addEventListener("change", () => onChange(input.checked));
+    sw.append(input, el("span"));
+    return sw;
+  }
+
+  async function gfxAction(promise, okText) {
+    const r = await promise;
+    if (busyGuard(r)) return;
+    if (r && (r.ok || r.ok === undefined) && !r.error) toast(okText, "ok");
+    else toast("No se pudo aplicar. Mira la Actividad para ver el motivo.", "error");
+    await loadGfx();
+  }
+
+  function renderGfx() {
+    const st = state.gfx;
+    const G = state.catalog.graphics;
+    const root = $("#gfx-root");
+    root.innerHTML = "";
+
+    // Tu equipo
+    const hw = el("div", "gfx-hw");
+    const cpu = el("div", "card");
+    cpu.append(el("span", "muted small", "Procesador"), el("strong", "", st.detect.cpu || "—"));
+    hw.append(cpu);
+    st.detect.gpus.forEach((g) => {
+      const c = el("div", "card");
+      c.append(el("span", "muted small", "Tarjeta gráfica" + (g.kind === "amd" && st.detect.gpus.some((x) => x.kind === "nvidia") ? " (integrada en el procesador)" : "")),
+        el("strong", "", g.name), el("span", "muted small", "Driver " + (g.driver || "—")));
+      hw.append(c);
+    });
+    root.append(hw);
+
+    const hasNv = st.detect.gpus.some((g) => g.kind === "nvidia");
+    const hasAmd = st.detect.gpus.some((g) => g.kind === "amd") || (st.amd && st.amd.available);
+
+    // ---- NVIDIA
+    if (hasNv) {
+      const nv = st.nvidia;
+      const sec = gfxSection("🟩 NVIDIA – Panel de control", "Ajustes globales: se aplican a todos los juegos (cada juego puede tener los suyos en el Panel de control de NVIDIA).");
+      if (nv.info && nv.info.available) {
+        sec.querySelector("h2").append(el("span", "badge neutral", `${(nv.info.gpus || [])[0] || "NVIDIA"} · driver ${nv.info.driver}`));
+        const list = el("div", "tweak-list");
+        const best = G.NVIDIA_PRESETS[0].values;
+        for (const s of G.NVIDIA) {
+          const v = nv.values[s.key];
+          const txt = v == null ? "No disponible" : (s.options[v] || `Otro valor (${v})`);
+          const val = el("span", "gfx-value" + (v === best[s.key] ? " good" : ""), txt);
+          list.append(settingRow(s.name, s.summary, s.warn, val));
+        }
+        sec.append(list);
+        const pr = el("div", "gfx-presets");
+        for (const p of G.NVIDIA_PRESETS) {
+          const b = el("button", "btn primary");
+          b.append(`Aplicar «${p.name}»`, el("small", "", p.summary));
+          b.dataset.gfxBtn = "1";
+          b.addEventListener("click", () => applyNvPreset(p));
+          pr.append(b);
+        }
+        if (st.backup.nvidia) {
+          const b = el("button", "btn", "↩ Volver a como lo tenía");
+          b.dataset.gfxBtn = "1";
+          b.addEventListener("click", () => gfxAction(api.gfxNvidia("backup"), "Ajustes de NVIDIA restaurados a como los tenías."));
+          pr.append(b);
+        }
+        const f = el("button", "btn", "Valores de fábrica de NVIDIA");
+        f.dataset.gfxBtn = "1";
+        f.addEventListener("click", async () => {
+          if (await confirmDialog({ title: "¿Volver a los valores de fábrica?", body: el("p", "", "Estos ajustes globales volverán a como vienen con el driver de NVIDIA."), ok: "Restaurar" }))
+            gfxAction(api.gfxNvidia("factory"), "Valores de fábrica de NVIDIA restaurados.");
+        });
+        pr.append(f);
+        sec.append(pr);
+      } else {
+        const why = nv.info && nv.info.missing ? "Falta el componente de ToolBox para NVIDIA (vuelve a instalar ToolBox)."
+          : "No se pudo conectar con el driver de NVIDIA. Prueba a actualizar el driver desde NVIDIA App.";
+        sec.append(el("div", "banner warn", why));
+      }
+      root.append(sec);
+    }
+
+    // ---- AMD
+    if (hasAmd) {
+      const amd = st.amd || {};
+      const integrated = hasNv;
+      const sec = gfxSection("🟥 AMD – Adrenalin", integrated
+        ? "Es la gráfica integrada de tu procesador Ryzen. Solo afecta a lo que se dibuje con ella: si tu monitor está conectado a la NVIDIA, normalmente no cambia nada en tus juegos."
+        : "Ajustes globales de AMD Software: Adrenalin Edition.");
+      if (amd.available) {
+        sec.querySelector("h2").append(el("span", "badge neutral", amd.gpu || "AMD"));
+        const list = el("div", "tweak-list");
+        for (const a of G.AMD) {
+          const f = (amd.features || {})[a.key] || { supported: false };
+          let right;
+          if (!f.supported) right = el("span", "muted small", "No compatible");
+          else right = switchFor(!!f.enabled, state.busy, (on) => gfxAction(api.gfxAmd("set", { [a.key]: on ? 1 : 0 }), `${a.name}: ${on ? "activado" : "desactivado"}.`), a.name);
+          const summary = a.key === "sharpening" && f.supported && f.sharpness != null ? `${a.summary} Nitidez actual: ${f.sharpness} %.` : a.summary;
+          list.append(settingRow(a.name, summary, null, right));
+        }
+        sec.append(list);
+        const pr = el("div", "gfx-presets");
+        for (const p of G.AMD_PRESETS) {
+          const b = el("button", "btn primary");
+          b.append(`Aplicar «${p.name}»`, el("small", "", p.summary));
+          b.dataset.gfxBtn = "1";
+          b.addEventListener("click", () => gfxAction(api.gfxAmd("preset", p.id), `Perfil «${p.name}» de AMD aplicado.`));
+          pr.append(b);
+        }
+        if (st.backup.amd) {
+          const b = el("button", "btn", "↩ Volver a como lo tenía");
+          b.dataset.gfxBtn = "1";
+          b.addEventListener("click", () => gfxAction(api.gfxAmd("backup"), "Ajustes de AMD restaurados a como los tenías."));
+          pr.append(b);
+        }
+        sec.append(pr);
+      } else {
+        sec.append(el("div", "banner warn", amd.missing ? "Falta el componente de ToolBox para AMD (vuelve a instalar ToolBox)."
+          : "No se encontró AMD Software: Adrenalin Edition o su driver no es compatible. Instálalo o actualízalo desde amd.com."));
+      }
+      root.append(sec);
+    }
+
+    // ---- Windows
+    const win = gfxSection("🪟 Windows", "Ajustes gráficos de Windows que sirven para cualquier tarjeta.");
+    const wl = el("div", "tweak-list");
+    for (const w of G.WINDOWS) {
+      const right = switchFor(!!st.win[w.key], state.busy, (on) => gfxAction(api.gfxWindows(w.key, on),
+        `${w.name}: ${on ? "activado" : "desactivado"}.${w.restart === "reboot" ? " Reinicia el PC para que tenga efecto." : ""}`), w.name);
+      const row = settingRow(w.name, w.summary, null, right);
+      if (w.restart === "reboot") row.querySelector("h3").append(el("span", "badge neutral", "Hay que reiniciar"));
+      wl.append(row);
+    }
+    win.append(wl);
+    root.append(win);
+
+    // ---- Notificaciones y extras
+    const nt = gfxSection("🔕 Notificaciones, anuncios y telemetría", "NVIDIA y AMD no ofrecen una forma oficial de cambiar esto desde fuera de sus apps, así que te guiamos paso a paso.");
+    const guides = [];
+    if (hasNv) guides.push(G.GUIDES.nvidia);
+    if (hasAmd) guides.push(G.GUIDES.amd);
+    for (const gd of guides) {
+      const c = el("div", "card guide");
+      c.append(el("strong", "", gd.title));
+      const ol = el("ol");
+      gd.steps.forEach((s) => ol.append(el("li", "", s)));
+      c.append(ol);
+      c.style.marginBottom = "10px";
+      nt.append(c);
+    }
+    if (hasNv) {
+      const tasks = st.tasks || [];
+      const list = el("div", "tweak-list");
+      const enabled = tasks.filter((t) => t.enabled).length;
+      let right;
+      if (!tasks.length) right = el("span", "muted small", "Tu driver no las tiene");
+      else {
+        right = el("button", "btn btn-small", enabled ? "Desactivar" : "Reactivar");
+        right.dataset.gfxBtn = "1";
+        right.addEventListener("click", () => gfxAction(api.gfxTelemetry(!enabled), enabled ? "Telemetría de NVIDIA desactivada." : "Telemetría de NVIDIA reactivada."));
+      }
+      list.append(settingRow("Tareas de telemetría de NVIDIA",
+        tasks.length ? `${tasks.length} tarea(s) programada(s) que envían informes a NVIDIA; ${enabled} activa(s).` : "Las versiones antiguas del driver instalaban tareas que enviaban informes de uso a NVIDIA.",
+        tasks.length ? "Al actualizar el driver pueden volver a activarse: repite este paso si hace falta." : null, right));
+      nt.append(list);
+    }
+    root.append(nt);
+    refreshButtons();
+  }
+
+  async function applyNvPreset(p) {
+    const G = state.catalog.graphics;
+    const cur = state.gfx.nvidia.values;
+    const body = el("div");
+    body.append(el("p", "", p.summary));
+    const ul = el("ul");
+    for (const s of G.NVIDIA) {
+      const to = p.values[s.key];
+      if (to == null) continue;
+      const li = el("li");
+      li.append(el("strong", "", s.name), el("span", "muted", `${s.options[cur[s.key]] || cur[s.key]} → ${s.options[to]}${s.warn ? " · " + s.warn : ""}`));
+      ul.append(li);
+    }
+    body.append(ul);
+    body.append(el("p", "muted small", "La primera vez se guarda cómo lo tenías para poder volver atrás."));
+    if (await confirmDialog({ title: `NVIDIA: «${p.name}»`, body, ok: "Aplicar" }))
+      gfxAction(api.gfxNvidia("preset", p.id), `Perfil «${p.name}» de NVIDIA aplicado. Se nota al abrir el próximo juego.`);
+  }
+
   // ------------------------------------------------------------ Quitar apps
   const bloatPresent = (id) => {
     const st = state.bloatStatus && state.bloatStatus[id];
@@ -969,7 +1192,7 @@
     $("#restore-btn").disabled = state.busy;
     $("#bloat-remove-btn").disabled = state.busy || !state.bloatSel.size;
     document.querySelectorAll("[data-bloat-reinstall]").forEach((b) => { b.disabled = state.busy; });
-    document.querySelectorAll("[data-profile-btn], [data-uninstall-key]").forEach((b) => { b.disabled = state.busy; });
+    document.querySelectorAll("[data-profile-btn], [data-uninstall-key], [data-gfx-btn]").forEach((b) => { b.disabled = state.busy; });
     document.querySelectorAll("[data-repair-btn]").forEach((b) => {
       b.disabled = state.busy || !!(state.repairState[b.dataset.repairBtn] || {}).running;
     });

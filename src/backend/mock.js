@@ -197,12 +197,40 @@ async function leftoversClean(items, backupDir, log) {
   return items.map((i) => { log(`✔ ${i.kind === "folder" ? "Carpeta enviada a la Papelera" : "Clave borrada (con copia)"}: ${i.path}`); return { ...i, ok: true }; });
 }
 
+// ---- Gráficos (demo: como el PC del usuario, NVIDIA + Ryzen con gráficos integrados)
+const G = require("../data/graphics");
+const nvValues = { power: 5, lowLatency: 0, textureQuality: 0 };
+const amdFeat = { antiLag: false, sharpening: true, chill: false, boost: false, enhancedSync: true, sharpness: 80 };
+const winGfx = { hags: true, windowedOpt: false, gameMode: true };
+let nvTasks = [{ name: "NvTmRep_CrashReport1", path: "\\", enabled: true }, { name: "NvTmRepOnLogon", path: "\\", enabled: true }];
+async function gpuDetect() {
+  await wait(300);
+  return { cpu: "AMD Ryzen 7 7800X3D 8-Core Processor", cpuVendor: "amd", gpus: [
+    { name: "NVIDIA GeForce RTX 4070", vendor: "NVIDIA", driver: "32.0.15.7283", kind: "nvidia" },
+    { name: "AMD Radeon(TM) Graphics", vendor: "Advanced Micro Devices, Inc.", driver: "32.0.12033.5", kind: "amd" }] };
+}
+async function nvidiaState() { await wait(300); return { info: { available: true, ok: true, driver: "572.83", branch: "r570_00", gpus: ["NVIDIA GeForce RTX 4070"] }, values: { ...nvValues } }; }
+async function nvidiaApply(values, log) { await wait(400); Object.assign(nvValues, values); log("✔ Ajustes de NVIDIA guardados."); return { ok: true }; }
+async function nvidiaFactory(keys, log) { await wait(400); for (const s of G.NVIDIA) if (keys.includes(s.key)) nvValues[s.key] = s.factory; log("✔ Valores de fábrica de NVIDIA restaurados."); return { ok: true }; }
+async function amdState() {
+  await wait(300);
+  const f = (k, extra = {}) => ({ supported: true, enabled: amdFeat[k], ...extra });
+  return { available: true, ok: true, gpu: "AMD Radeon(TM) Graphics", gpuCount: 1, features: {
+    antiLag: f("antiLag"), sharpening: f("sharpening", { sharpness: amdFeat.sharpness, min: 10, max: 100 }), chill: f("chill"), boost: { supported: false, enabled: false }, enhancedSync: f("enhancedSync") } };
+}
+async function amdApply(values, log) { await wait(400); for (const [k, v] of Object.entries(values)) amdFeat[k] = k === "sharpness" ? Number(v) : !!Number(v); log("✔ Ajustes de AMD guardados."); return { ok: true }; }
+async function windowsState() { await wait(150); return { ...winGfx }; }
+async function windowsSet(key, enable, log) { await wait(250); winGfx[key] = enable; log(`✔ ${key}: ${enable ? "activado" : "desactivado"}.`); return { ok: true }; }
+async function nvidiaTelemetryTasks() { return nvTasks.map((t) => ({ ...t })); }
+async function nvidiaTelemetrySet(enable, log) { nvTasks = nvTasks.map((t) => ({ ...t, enabled: enable })); log(`✔ ${nvTasks.length} tareas de telemetría ${enable ? "reactivadas" : "desactivadas"}.`); return { ok: true, count: nvTasks.length }; }
+
 async function reboot(log) { log("Reinicio solicitado (demo: no se reinicia nada)."); return { ok: true }; }
 
 module.exports = {
   runRepair, reboot,
   bloatStatus, bloatRemove, bloatReinstall,
   programsList, programUninstall, leftoversScan, leftoversClean,
+  gpuDetect, nvidiaState, nvidiaApply, nvidiaFactory, amdState, amdApply, windowsState, windowsSet, nvidiaTelemetryTasks, nvidiaTelemetrySet,
   systemInfo, restoreStatus, createRestorePoint, restartExplorer,
   cleanupScan, cleanupRun,
   tweaksStatus, tweakSet,

@@ -64,8 +64,9 @@ AMD tiene un SDK oficial, **ADLX** (*AMD Device Library eXtra*), que viene con e
 anisotrópico, Frame Rate Target Control y Radeon Super Resolution**, por GPU. Además tiene servicios de pantalla
 (FreeSync, escalado) y de *tuning*.
 
-> Licencia: el repositorio aparece como MIT, pero el SDK incluye un «ADLX SDK License Agreement» aparte. Hay que
-> leerlo antes de distribuir el programa auxiliar.
+> Licencia: el SDK se rige por el «ADLX SDK License Agreement». Permite distribuir, **solo en forma compilada**, el
+> software creado con él para usarlo con hardware de AMD. Es justo lo que hace ToolBox: el código fuente de AMD no
+> se incluye en el repositorio; se descarga y se compila en GitHub Actions.
 
 ### Qué ajustes ofrecería ToolBox
 | Ajuste | «Mejor para jugar» | Ojo |
@@ -109,6 +110,14 @@ ToolBox debería guiar paso a paso (y abrir AMD Software) en vez de escribir cla
 3. **Fase 2 (NVIDIA):** programa auxiliar con NVAPI que lee y aplica el perfil global, con copia para deshacer.
 4. **Fase 3 (AMD):** programa auxiliar con ADLX para Anti-Lag, Sharpening, Chill, Boost, Enhanced Sync y FreeSync,
    con copia para deshacer.
+
+## Estado (ToolBox 0.6.0)
+- ✅ Hecho: detección, ajustes de Windows, guías, telemetría de NVIDIA, ayudante NVAPI (`native/nvidia`) y ayudante
+  ADLX (`native/amd`), con copia para deshacer.
+- ✅ Probado en Windows real (sin tarjeta): compilan, arrancan y responden «no disponible» sin fallar; los ajustes de
+  Windows se aplican y se deshacen.
+- ⏳ Pendiente de probar en un PC con NVIDIA y con AMD.
+- Fuera por ahora (no documentados): modo de latencia «Ultra» de NVIDIA y anuncios de Adrenalin por registro.
 
 ## Fuentes
 - NVAPI, funciones DRS: <https://docs.nvidia.com/nvapi/group__drsapi.html>

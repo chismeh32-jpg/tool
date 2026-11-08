@@ -8,6 +8,7 @@ const APPS = require("./data/apps");
 const REPAIRS = require("./data/repairs");
 const BLOATWARE = require("./data/bloatware");
 const profiles = require("./backend/profiles");
+const GFX = require("./data/graphics");
 
 let win = null;
 let busy = false;
@@ -97,7 +98,7 @@ const publicRepairs = REPAIRS.map(({ steps, ...rest }) => ({ ...rest, steps: ste
 
 const publicBloat = { groups: BLOATWARE.GROUPS, apps: BLOATWARE.APPS.map(({ preRemove, ...rest }) => ({ ...rest, canReinstall: !!rest.storeId })) };
 
-ipcMain.handle("catalog", () => ({ cleanup: publicCleanup, tweaks: publicTweaks, apps: APPS, repairs: publicRepairs, bloat: publicBloat, profiles: profiles.PROFILES, mock: backend.isMock }));
+ipcMain.handle("catalog", () => ({ cleanup: publicCleanup, tweaks: publicTweaks, apps: APPS, repairs: publicRepairs, bloat: publicBloat, profiles: profiles.PROFILES, graphics: GFX, mock: backend.isMock }));
 ipcMain.handle("bloat:status", () => backend.bloatStatus().catch((e) => ({ error: e.message })));
 ipcMain.handle("bloat:remove", (_e, ids, opts = {}) => exclusive(async () => {
   const list = validIds(ids, BLOATWARE.APPS);
@@ -179,6 +180,63 @@ ipcMain.handle("system:openBackups", () => {
   fs.mkdirSync(dir, { recursive: true });
   return shell.openPath(dir);
 });
+// ---- Gráficos
+// Antes del primer cambio se guardan los valores que tenía el usuario, para «Volver a como lo tenía».
+const gfxBackupFile = () => path.join(app.getPath("userData"), "graphics-backup.json");
+const readGfxBackup = () => { try { return JSON.parse(fs.readFileSync(gfxBackupFile(), "utf8")); } catch { return {}; } };
+const writeGfxBackup = (b) => { fs.mkdirSync(path.dirname(gfxBackupFile()), { recursive: true }); fs.writeFileSync(gfxBackupFile(), JSON.stringify(b, null, 2)); };
+const amdCurrent = (st) => {
+  const out = {};
+  for (const [k, f] of Object.entries((st && st.features) || {})) if (f.supported) { out[k] = f.enabled ? 1 : 0; if (k === "sharpening" && f.sharpness != null) out.sharpness = f.sharpness; }
+  return out;
+};
+
+ipcMain.handle("gfx:state", () => exclusive(async () => {
+  const [detect, nvidia, amd, win, tasks] = await Promise.all([
+    backend.gpuDetect(), backend.nvidiaState(), backend.amdState(), backend.windowsState(), backend.nvidiaTelemetryTasks(),
+  ]);
+  const b = readGfxBackup();
+  return { detect, nvidia, amd, win, tasks, backup: { nvidia: !!b.nvidia, amd: !!b.amd } };
+}));
+ipcMain.handle("gfx:nvidia", (_e, action, arg) => exclusive(async () => {
+  const keys = GFX.NVIDIA.map((s) => s.key);
+  const b = readGfxBackup();
+  if (action === "preset" || action === "set") {
+    const values = action === "preset" ? (GFX.NVIDIA_PRESETS.find((p) => p.id === arg) || {}).values : arg;
+    if (!values) return { error: "unknown" };
+    if (!b.nvidia) { const st = await backend.nvidiaState(); if (st.values) { b.nvidia = st.values; writeGfxBackup(b); } }
+    return backend.nvidiaApply(values, log);
+  }
+  if (action === "backup") {
+    if (!b.nvidia) return { error: "nobackup" };
+    const r = await backend.nvidiaApply(b.nvidia, log);
+    if (r.ok) { delete b.nvidia; writeGfxBackup(b); }
+    return r;
+  }
+  if (action === "factory") { const r = await backend.nvidiaFactory(keys, log); if (r.ok) { delete b.nvidia; writeGfxBackup(b); } return r; }
+  return { error: "unknown" };
+}));
+ipcMain.handle("gfx:amd", (_e, action, arg) => exclusive(async () => {
+  const b = readGfxBackup();
+  if (action === "preset" || action === "set") {
+    const values = action === "preset" ? (GFX.AMD_PRESETS.find((p) => p.id === arg) || {}).values : arg;
+    if (!values) return { error: "unknown" };
+    if (!b.amd) { b.amd = amdCurrent(await backend.amdState()); writeGfxBackup(b); }
+    return backend.amdApply(values, log);
+  }
+  if (action === "backup") {
+    if (!b.amd) return { error: "nobackup" };
+    const r = await backend.amdApply(b.amd, log);
+    if (r.ok) { delete b.amd; writeGfxBackup(b); }
+    return r;
+  }
+  return { error: "unknown" };
+}));
+ipcMain.handle("gfx:windows", (_e, key, enable) => exclusive(() => {
+  if (!GFX.WINDOWS.find((w) => w.key === key)) return { error: "unknown" };
+  return backend.windowsSet(key, !!enable, log);
+}));
+ipcMain.handle("gfx:telemetry", (_e, enable) => exclusive(() => backend.nvidiaTelemetrySet(!!enable, log)));
 ipcMain.handle("system:openLogs", () => shell.openPath(path.dirname(logPath())));
 ipcMain.handle("system:restartExplorer", () => exclusive(() => backend.restartExplorer(log)));
 

@@ -455,4 +455,5 @@ module.exports = {
   runRepair, reboot,
   bloatStatus, bloatRemove, bloatReinstall,
   ...require("./uninstaller"),
+  ...require("./graphics"),
 };
