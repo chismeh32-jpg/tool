@@ -17,7 +17,8 @@
       <button class="nav-item active" data-page="home"><span class="nav-ico">🏠</span>Inicio</button>
       <button class="nav-item" data-page="cleanup"><span class="nav-ico">🧹</span>Limpieza</button>
       <button class="nav-item" data-page="repairs"><span class="nav-ico">🩺</span>Reparar</button>
-      <button class="nav-item" data-page="apps"><span class="nav-ico">📦</span>Aplicaciones</button>
+      <button class="nav-item" data-page="apps"><span class="nav-ico">📦</span>Instalar apps</button>
+      <button class="nav-item" data-page="bloat"><span class="nav-ico">🧽</span>Quitar apps</button>
       <button class="nav-item" data-page="tweaks"><span class="nav-ico">🎛️</span>Ajustes</button>
       <div class="sidebar-spacer"></div>
       <div class="demo-pill hidden" id="demo-pill" title="No estás en Windows: ToolBox simula todo y no toca nada.">Modo demostración</div>
@@ -113,7 +114,7 @@
       <!-- APLICACIONES -->
       <section class="page" id="page-apps">
         <header class="page-head">
-          <h1>📦 Aplicaciones</h1>
+          <h1>📦 Instalar apps</h1>
           <p class="lead">Marca los programas que quieras y pulsa «Instalar». Se descargan de sus webs oficiales a través de
             <strong>winget</strong>, el instalador oficial de Microsoft, y se instalan sin preguntas.</p>
         </header>
@@ -129,6 +130,24 @@
         <div class="footer-bar">
           <span id="apps-total">Nada seleccionado</span>
           <button class="btn primary" id="install-btn" disabled>Instalar</button>
+        </div>
+      </section>
+
+      <!-- QUITAR APPS (bloatware) -->
+      <section class="page" id="page-bloat">
+        <header class="page-head">
+          <h1>🧽 Quitar apps</h1>
+          <p class="lead">Windows trae apps preinstaladas que mucha gente no usa. Quitarlas libera espacio y elimina publicidad.
+            <strong>Se pueden volver a instalar</strong> cuando quieras desde aquí mismo.</p>
+        </header>
+        <div class="toolbar">
+          <button class="btn" id="bloat-recommended">Marcar las recomendadas</button>
+          <span class="muted" id="bloat-status">Comprobando qué apps tienes…</span>
+        </div>
+        <div id="bloat-groups"></div>
+        <div class="footer-bar">
+          <span id="bloat-total">Nada seleccionado</span>
+          <button class="btn primary" id="bloat-remove-btn" disabled>Quitar</button>
         </div>
       </section>
 

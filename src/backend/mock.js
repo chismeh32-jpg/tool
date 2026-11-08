@@ -4,6 +4,9 @@ const CLEANUP = require("../data/cleanup");
 const TWEAKS = require("../data/tweaks");
 const APPS = require("../data/apps");
 const REPAIRS = require("../data/repairs");
+const BLOAT = require("../data/bloatware").APPS;
+// En la demo, todas están instaladas salvo algunas herramientas; Xbox Identity simula que Windows no deja quitarla
+const bloatInstalled = new Set(BLOAT.filter((a) => !["Microsoft.ZuneVideo", "Microsoft.Windows.DevHome"].includes(a.id)).map((a) => a.id));
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const GB = 1024 ** 3;
@@ -129,10 +132,46 @@ async function runRepair(id, log, onProgress) {
   return result;
 }
 
+async function bloatStatus() {
+  await wait(400);
+  return Object.fromEntries(BLOAT.map((a) => [a.id, { installed: bloatInstalled.has(a.id), provisioned: bloatInstalled.has(a.id) }]));
+}
+
+async function bloatRemove(ids, log, onItem) {
+  const results = [];
+  for (const a of BLOAT.filter((x) => ids.includes(x.id))) {
+    onItem && onItem(a.id, { status: "running" });
+    await wait(350);
+    const r = !bloatInstalled.has(a.id) ? { status: "notInstalled" }
+      : a.id === "Microsoft.XboxIdentityProvider" ? { status: "error", reason: "Windows no permite quitar esta app (forma parte del sistema)." }
+      : { status: "removed" };
+    if (r.status === "removed") bloatInstalled.delete(a.id);
+    log(r.status === "removed" ? `✔ ${a.name} quitada.` : r.status === "notInstalled" ? `✔ ${a.name} no estaba instalada.` : `✖ ${a.name}: ${r.reason}`);
+    onItem && onItem(a.id, r);
+    results.push({ id: a.id, ...r });
+  }
+  return results;
+}
+
+async function bloatReinstall(ids, log, onItem) {
+  const results = [];
+  for (const a of BLOAT.filter((x) => ids.includes(x.id))) {
+    onItem && onItem(a.id, { status: "running" });
+    await wait(800);
+    const r = a.storeId ? { status: "reinstalled" } : { status: "manual", reason: "Búscala en Microsoft Store para volver a instalarla." };
+    if (r.status === "reinstalled") bloatInstalled.add(a.id);
+    log(r.status === "reinstalled" ? `✔ ${a.name} reinstalada.` : `ℹ ${a.name}: ${r.reason}`);
+    onItem && onItem(a.id, r);
+    results.push({ id: a.id, ...r });
+  }
+  return results;
+}
+
 async function reboot(log) { log("Reinicio solicitado (demo: no se reinicia nada)."); return { ok: true }; }
 
 module.exports = {
   runRepair, reboot,
+  bloatStatus, bloatRemove, bloatReinstall,
   systemInfo, restoreStatus, createRestorePoint, restartExplorer,
   cleanupScan, cleanupRun,
   tweaksStatus, tweakSet,

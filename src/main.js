@@ -6,6 +6,7 @@ const CLEANUP = require("./data/cleanup");
 const TWEAKS = require("./data/tweaks");
 const APPS = require("./data/apps");
 const REPAIRS = require("./data/repairs");
+const BLOATWARE = require("./data/bloatware");
 
 let win = null;
 let busy = false;
@@ -93,7 +94,20 @@ const publicTweaks = TWEAKS.map(({ id, category, name, summary, details, risk, r
 
 const publicRepairs = REPAIRS.map(({ steps, ...rest }) => ({ ...rest, steps: steps.map((s) => s.label) }));
 
-ipcMain.handle("catalog", () => ({ cleanup: publicCleanup, tweaks: publicTweaks, apps: APPS, repairs: publicRepairs, mock: backend.isMock }));
+const publicBloat = { groups: BLOATWARE.GROUPS, apps: BLOATWARE.APPS.map(({ preRemove, ...rest }) => ({ ...rest, canReinstall: !!rest.storeId })) };
+
+ipcMain.handle("catalog", () => ({ cleanup: publicCleanup, tweaks: publicTweaks, apps: APPS, repairs: publicRepairs, bloat: publicBloat, mock: backend.isMock }));
+ipcMain.handle("bloat:status", () => backend.bloatStatus().catch((e) => ({ error: e.message })));
+ipcMain.handle("bloat:remove", (_e, ids, opts = {}) => exclusive(async () => {
+  const list = validIds(ids, BLOATWARE.APPS);
+  if (opts.restorePoint) {
+    const rp = await backend.createRestorePoint(log, { allowEnable: !!opts.allowEnableRestore });
+    if (!rp.ok) return { aborted: true, restorePoint: rp };
+  }
+  return { results: await backend.bloatRemove(list, log, progress("bloat")) };
+}));
+ipcMain.handle("bloat:reinstall", (_e, ids) =>
+  exclusive(async () => ({ results: await backend.bloatReinstall(validIds(ids, BLOATWARE.APPS), log, progress("bloat")) })));
 ipcMain.handle("system:info", () => backend.systemInfo().catch((e) => ({ error: e.message })));
 ipcMain.handle("system:restorePoint", (_e, opts = {}) =>
   exclusive(() => backend.createRestorePoint(log, { allowEnable: !!opts.allowEnable })));

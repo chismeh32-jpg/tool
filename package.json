@@ -1,7 +1,7 @@
 {
   "name": "toolbox",
   "productName": "ToolBox",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Pon tu Windows a punto: limpieza, instalación de apps y ajustes, explicados paso a paso.",
   "main": "src/main.js",
   "author": "chismeh32-jpg",
@@ -11,6 +11,7 @@
     "start": "electron .",
     "test:windows": "node test/windows-smoke.js",
     "test:repairs": "node test/windows-repairs.js",
+    "test:bloat": "node test/windows-bloat.js",
     "dist": "electron-builder --win --publish never"
   },
   "devDependencies": {

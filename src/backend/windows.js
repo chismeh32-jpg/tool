@@ -4,6 +4,7 @@ const CLEANUP = require("../data/cleanup");
 const TWEAKS = require("../data/tweaks");
 const APPS = require("../data/apps");
 const REPAIRS = require("../data/repairs");
+const BLOAT = require("../data/bloatware").APPS;
 
 
 function splitHive(fullPath) {
@@ -212,6 +213,97 @@ async function reboot(log) {
   return { ok: true };
 }
 
+// ---------------------------------------------------------------- Apps de Windows (bloatware)
+/** Qué apps del catálogo están instaladas (para cualquier usuario) o incluidas en la plantilla de usuarios nuevos. */
+async function bloatStatus() {
+  const { json } = await runPowerShell(String.raw`
+    $names = @(Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name -Unique)
+    $prov = @(Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Select-Object -ExpandProperty DisplayName -Unique)
+    Emit @{ names = $names; prov = $prov }`);
+  const r = json[0] || { names: [], prov: [] };
+  const installed = new Set([].concat(r.names || []).map((n) => String(n).toLowerCase()));
+  const provisioned = new Set([].concat(r.prov || []).map((n) => String(n).toLowerCase()));
+  return Object.fromEntries(BLOAT.map((a) => {
+    const k = a.id.toLowerCase();
+    return [a.id, { installed: installed.has(k), provisioned: provisioned.has(k) }];
+  }));
+}
+
+/** Quita las apps para todos los usuarios y de la plantilla (para que no vuelvan con usuarios nuevos). */
+async function bloatRemove(ids, log, onItem) {
+  const apps = BLOAT.filter((a) => ids.includes(a.id));
+  const body = apps.map((a) => String.raw`
+    $name = ${ps(a.id)}
+    Emit @{ id = $name; status = 'running' }
+    ${a.preRemove ? `try { ${a.preRemove} } catch { }` : ""}
+    $pkgs = @(Get-AppxPackage -AllUsers -Name $name -ErrorAction SilentlyContinue | Sort-Object PackageFullName -Unique)
+    $provs = @($provAll | Where-Object { $_.DisplayName -eq $name })
+    if (-not $pkgs.Count -and -not $provs.Count) {
+      Emit @{ id = $name; status = 'notInstalled' }
+    } else {
+      $err = $null
+      foreach ($p in $pkgs) { try { Remove-AppxPackage -Package $p.PackageFullName -AllUsers -ErrorAction Stop } catch { $err = $_.Exception.Message } }
+      foreach ($p in $provs) { try { Remove-AppxProvisionedPackage -Online -PackageName $p.PackageName -ErrorAction Stop | Out-Null } catch { if (-not $err) { $err = $_.Exception.Message } } }
+      $still = @(Get-AppxPackage -AllUsers -Name $name -ErrorAction SilentlyContinue)
+      if ($still.Count) { Emit @{ id = $name; status = 'error'; message = "$err" } } else { Emit @{ id = $name; status = 'removed' } }
+    }`).join("\n");
+  const results = [];
+  log(`▶ Quitando ${apps.length} app${apps.length === 1 ? "" : "s"} de Windows…`);
+  await runPowerShell(String.raw`
+    # La lista de la plantilla se pide una sola vez: es lenta
+    $provAll = @(Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue)
+    ${body}`, {
+    onLine: (l) => log("   " + l),
+    onJson: (o) => {
+      const app = BLOAT.find((a) => a.id === o.id);
+      if (!app) return;
+      if (o.status === "running") { onItem && onItem(o.id, { status: "running" }); return; }
+      let reason;
+      if (o.status === "error") {
+        reason = /0x80073CFA|cannot be removed|no se puede quitar|forma parte de Windows/i.test(o.message || "")
+          ? "Windows no permite quitar esta app (forma parte del sistema)."
+          : (o.message || "Windows no permitió quitarla.").split("\n")[0];
+      }
+      log(o.status === "removed" ? `✔ ${app.name} quitada.` : o.status === "notInstalled" ? `✔ ${app.name} no estaba instalada.` : `✖ ${app.name}: ${reason}`);
+      const r = { id: o.id, status: o.status, reason };
+      results.push(r);
+      onItem && onItem(o.id, r);
+    },
+  });
+  // Cualquier app sin respuesta (p. ej. PowerShell se cerró) cuenta como error
+  for (const a of apps) if (!results.find((r) => r.id === a.id)) {
+    const r = { id: a.id, status: "error", reason: "No hubo respuesta de Windows." };
+    results.push(r); onItem && onItem(a.id, r);
+  }
+  return results;
+}
+
+/** Vuelve a instalar apps desde Microsoft Store (winget, origen msstore). */
+async function bloatReinstall(ids, log, onItem) {
+  const results = [];
+  for (const app of BLOAT.filter((a) => ids.includes(a.id))) {
+    onItem && onItem(app.id, { status: "running" });
+    log(`▶ Reinstalando ${app.name} desde Microsoft Store…`);
+    let r;
+    if (!app.storeId) {
+      r = { status: "manual", reason: "Búscala en Microsoft Store para volver a instalarla." };
+    } else {
+      try {
+        const { code } = await runProcess("winget", ["install", "--id", app.storeId, "--source", "msstore", "--silent",
+          "--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"], { onLine: (l) => log("   " + l) });
+        const o = wingetOutcome(code);
+        r = ["done", "reboot", "already", "uptodate", "userScope"].includes(o.status) ? { status: "reinstalled" } : { status: "error", reason: o.reason };
+      } catch (e) {
+        r = { status: "error", reason: e.code === "ENOENT" ? "winget no está instalado." : e.message };
+      }
+    }
+    log(r.status === "reinstalled" ? `✔ ${app.name} reinstalada.` : r.status === "manual" ? `ℹ ${app.name}: ${r.reason}` : `✖ ${app.name}: ${r.reason || "no se pudo reinstalar."}`);
+    onItem && onItem(app.id, r);
+    results.push({ id: app.id, ...r });
+  }
+  return results;
+}
+
 // ---------------------------------------------------------------- Ajustes
 async function tweaksStatus() {
   const lines = [];
@@ -361,4 +453,5 @@ module.exports = {
   tweaksStatus, tweakSet,
   wingetAvailable, appsInstalled, appsInstall, appsUpgradeAll,
   runRepair, reboot,
+  bloatStatus, bloatRemove, bloatReinstall,
 };

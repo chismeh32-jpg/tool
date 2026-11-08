@@ -9,8 +9,9 @@ antes de hacer nada te explica **qué hace**, **qué notarás después** y te pi
 |---|---|
 | 🏠 **Inicio** | Espacio libre en disco, datos de tu PC y botón para crear un punto de restauración. |
 | 🧹 **Limpieza** | Analiza (sin borrar) y luego limpia: temporales, descargas de Windows Update, caché de Optimización de distribución, miniaturas, informes de errores, papelera y **actualizaciones antiguas de Windows** (DISM). |
-| 📦 **Aplicaciones** | Instala varios programas de golpe con `winget` (el instalador oficial de Microsoft) y actualiza todos los que tengas. |
+| 📦 **Instalar apps** | Instala varios programas de golpe con `winget` (el instalador oficial de Microsoft) y actualiza todos los que tengas. |
 | 🩺 **Reparar** | Arreglos oficiales de Windows explicados por síntoma, con progreso en directo. |
+| 🧽 **Quitar apps** | Quita las apps preinstaladas de Windows (publicidad, Xbox, extras) y permite reinstalarlas. |
 | 🎛️ **Ajustes** | Interruptores para quitar anuncios, mostrar extensiones, menú clásico, modo oscuro, ratón sin aceleración… **Todos se pueden deshacer.** |
 
 Cada limpieza viene marcada como **Seguro** o **Precaución**, y antes de los cambios importantes se ofrece un
@@ -29,6 +30,14 @@ Cada limpieza viene marcada como **Seguro** o **Precaución**, y antes de los ca
 > los necesita para limpiar carpetas del sistema y cambiar ajustes.
 
 ## Novedades
+
+**0.4.0 – Quitar apps**
+- Nueva sección **🧽 Quitar apps** con 34 apps preinstaladas de Windows, en tres grupos: publicidad y extras de
+  Microsoft (marcadas por defecto), Xbox y juegos (con aviso) y herramientas que quizá uses.
+- Se quitan para todos los usuarios y también de la plantilla de usuarios nuevos, para que no vuelvan.
+- Cualquier app quitada se puede **reinstalar** desde Microsoft Store con un botón.
+- Avisos claros en las delicadas (p. ej. «Inicio de sesión de Xbox» lo usan juegos de Steam).
+- La sección de instalar programas pasa a llamarse «Instalar apps».
 
 **0.3.0 – Reparar**
 - Nueva sección **🩺 Reparar**, organizada por lo que te pasa: Windows va raro (DISM + SFC + revisión del disco),

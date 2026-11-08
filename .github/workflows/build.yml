@@ -40,5 +40,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Probar «Quitar apps» en Windows real
+        run: node test/windows-bloat.js
       - name: Probar reparaciones en Windows real
         run: node test/windows-repairs.js

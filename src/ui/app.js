@@ -24,6 +24,9 @@
     tweakStatus: {},
     tweakPending: new Set(),
     repairState: {},   // id -> { running, step, total, label, percent, result }
+    bloatStatus: null, // id -> { installed, provisioned }
+    bloatSel: new Set(),
+    bloatState: {},    // id -> { status, reason }
   };
 
   // ------------------------------------------------------------ Utilidades
@@ -129,6 +132,7 @@
     $(".content").scrollTop = 0;
     if (page === "tweaks") loadTweaks();
     if (page === "apps" && !state.appsChecked) checkApps();
+    if (page === "bloat" && !state.bloatStatus) loadBloat();
   }
   document.querySelectorAll(".nav-item[data-page]").forEach((b) => b.addEventListener("click", () => go(b.dataset.page)));
   document.querySelectorAll("[data-goto]").forEach((b) => b.addEventListener("click", () => {
@@ -330,6 +334,7 @@
   api.onProgress(({ kind, id, data }) => {
     if (kind === "scan") { state.sizes[id] = data; renderCleanup(); }
     if (kind === "clean") { state.cleanState[id] = data; renderCleanup(); }
+    if (kind === "bloat") { state.bloatState[id] = data; renderBloat(); }
     if (kind === "repair") {
       state.repairState[id] = { ...(state.repairState[id] || {}), running: true, ...data };
       updateRepairProgress(id);
@@ -556,6 +561,131 @@
     else toast(`${r.name}: no se pudo completar. Mira el resultado y la Actividad.`, "error");
   }
 
+  // ------------------------------------------------------------ Quitar apps
+  const bloatPresent = (id) => {
+    const st = state.bloatStatus && state.bloatStatus[id];
+    return !!(st && (st.installed || st.provisioned));
+  };
+
+  async function loadBloat(keepSelection) {
+    const st = await api.bloatStatus();
+    if (!st || st.error) { $("#bloat-status").textContent = "No se pudo comprobar qué apps tienes."; return; }
+    const first = !state.bloatStatus;
+    state.bloatStatus = st;
+    if (first && !keepSelection) selectRecommendedBloat();
+    // Lo que ya no está no puede seguir seleccionado
+    [...state.bloatSel].forEach((id) => { if (!bloatPresent(id)) state.bloatSel.delete(id); });
+    const n = state.catalog.bloat.apps.filter((a) => bloatPresent(a.id)).length;
+    $("#bloat-status").textContent = `Tienes ${n} de las ${state.catalog.bloat.apps.length} apps de esta lista.`;
+    renderBloat();
+  }
+
+  function selectRecommendedBloat() {
+    const rec = new Set(state.catalog.bloat.groups.filter((g) => g.recommended).map((g) => g.id));
+    state.catalog.bloat.apps.forEach((a) => { if (rec.has(a.group) && !a.warn && bloatPresent(a.id)) state.bloatSel.add(a.id); });
+  }
+
+  function renderBloat() {
+    const root = $("#bloat-groups");
+    root.innerHTML = "";
+    if (!state.bloatStatus) return;
+    for (const g of state.catalog.bloat.groups) {
+      const box = el("div", "bloat-group");
+      const h = el("h2", "", g.name);
+      if (g.recommended) h.append(" ", el("span", "badge ok", "Recomendado quitar"));
+      box.append(h, el("p", "", g.summary));
+      const list = el("div", "bloat-list");
+      for (const a of state.catalog.bloat.apps.filter((x) => x.group === g.id)) {
+        const present = bloatPresent(a.id);
+        const st = state.bloatState[a.id] || {};
+        const row = el("label", "bloat-row" + (state.bloatSel.has(a.id) ? " checked" : "") + (present ? "" : " absent"));
+        const cb = el("input", "check");
+        cb.type = "checkbox";
+        cb.checked = state.bloatSel.has(a.id);
+        cb.disabled = !present || st.status === "running";
+        cb.setAttribute("aria-label", a.name);
+        cb.addEventListener("change", () => {
+          cb.checked ? state.bloatSel.add(a.id) : state.bloatSel.delete(a.id);
+          row.classList.toggle("checked", cb.checked);
+          updateBloatTotal();
+        });
+        const info = el("div");
+        const title = el("strong", "", a.name);
+        if (st.status === "running") title.append(el("span", "badge info", "Trabajando…"));
+        else if (st.status === "removed") title.append(el("span", "badge ok", "Quitada"));
+        else if (st.status === "reinstalled") title.append(el("span", "badge ok", "Reinstalada"));
+        else if (st.status === "error") title.append(el("span", "badge warn", "Error"));
+        else title.append(el("span", `badge ${present ? "neutral" : "neutral"}`, present ? "Instalada" : "No instalada"));
+        info.append(title, el("div", "muted", a.summary));
+        if (a.warn && present) info.append(el("div", "app-note", "⚠ " + a.warn));
+        if (st.reason) info.append(el("div", "app-note", st.reason));
+        row.append(cb, info);
+        if (!present && st.status !== "running") {
+          if (a.canReinstall) {
+            const b = el("button", "btn btn-small", "Reinstalar");
+            b.dataset.bloatReinstall = a.id;
+            b.disabled = state.busy;
+            b.addEventListener("click", (e) => { e.preventDefault(); reinstallBloat(a); });
+            row.append(b);
+          } else row.append(el("span", "muted small", "Desde Microsoft Store"));
+        } else row.append(el("span"));
+        list.append(row);
+      }
+      box.append(list);
+      root.append(box);
+    }
+    updateBloatTotal();
+  }
+
+  function updateBloatTotal() {
+    const n = state.bloatSel.size;
+    $("#bloat-total").textContent = n ? `${n} app${n > 1 ? "s" : ""} seleccionada${n > 1 ? "s" : ""}` : "Nada seleccionado";
+    refreshButtons();
+  }
+
+  $("#bloat-recommended").addEventListener("click", () => {
+    if (!state.bloatStatus) return;
+    state.bloatSel.clear();
+    selectRecommendedBloat();
+    renderBloat();
+  });
+
+  $("#bloat-remove-btn").addEventListener("click", async () => {
+    const apps = state.catalog.bloat.apps.filter((a) => state.bloatSel.has(a.id));
+    const body = el("div");
+    body.append(el("p", "", "Se van a quitar estas apps para todos los usuarios del PC (y también para los que se creen más adelante):"));
+    const ul = el("ul");
+    apps.forEach((a) => {
+      const li = el("li");
+      li.append(el("strong", "", a.name), el("span", "muted", a.warn ? "⚠ " + a.warn : a.summary));
+      ul.append(li);
+    });
+    body.append(ul);
+    body.append(el("p", "muted small", "Podrás volver a instalarlas desde esta misma pantalla con «Reinstalar»."));
+    const risky = apps.some((a) => a.group !== "ads" || a.warn);
+    const rp = restorePointOption(risky);
+    body.append(rp.node);
+    if (!(await confirmDialog({ title: `¿Quitar ${apps.length} app${apps.length > 1 ? "s" : ""}?`, body, ok: "Quitar" }))) return;
+    $("#activity").classList.remove("hidden");
+    const r = await withRestorePoint((o) => api.bloatRemove(apps.map((a) => a.id), o), { restorePoint: rp.value }, "quitar las apps");
+    if (r === null || busyGuard(r)) return;
+    const removed = r.results.filter((x) => x.status === "removed").length;
+    const errors = r.results.filter((x) => x.status === "error").length;
+    toast(errors ? `${removed} quitada${removed === 1 ? "" : "s"}; ${errors} no se pudo${errors === 1 ? "" : "ieron"} quitar.` : `¡Listo! ${removed} app${removed === 1 ? "" : "s"} quitada${removed === 1 ? "" : "s"}.`, errors ? "error" : "ok");
+    state.bloatSel.clear();
+    await loadBloat(true);
+  });
+
+  async function reinstallBloat(a) {
+    const body = el("p", "", `Se descargará ${a.name} desde Microsoft Store. Necesitas conexión a Internet.`);
+    if (!(await confirmDialog({ title: `¿Reinstalar ${a.name}?`, body, ok: "Reinstalar" }))) return;
+    const r = await api.bloatReinstall([a.id]);
+    if (busyGuard(r)) return;
+    const res = r.results[0];
+    toast(res.status === "reinstalled" ? `${a.name} reinstalada.` : `${a.name}: ${res.reason || "no se pudo reinstalar."}`, res.status === "reinstalled" ? "ok" : "error");
+    await loadBloat(true);
+  }
+
   // ------------------------------------------------------------ Ajustes
   const RESTART_TEXT = { explorer: "Reinicia el Explorador", logout: "Al volver a iniciar sesión" };
 
@@ -634,6 +764,8 @@
     $("#install-btn").disabled = state.busy || !state.appSel.size || state.winget === false;
     $("#upgrade-btn").disabled = state.busy || state.winget === false;
     $("#restore-btn").disabled = state.busy;
+    $("#bloat-remove-btn").disabled = state.busy || !state.bloatSel.size;
+    document.querySelectorAll("[data-bloat-reinstall]").forEach((b) => { b.disabled = state.busy; });
     document.querySelectorAll("[data-repair-btn]").forEach((b) => {
       b.disabled = state.busy || !!(state.repairState[b.dataset.repairBtn] || {}).running;
     });
