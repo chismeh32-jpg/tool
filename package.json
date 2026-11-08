@@ -36,7 +36,7 @@
     "win": {
       "target": ["nsis", "portable"],
       "icon": "build/icon.png",
-      "requestedExecutionLevel": "requireAdministrator"
+      "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
       "oneClick": false,

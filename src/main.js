@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const { spawnSync } = require("child_process");
 const backend = require("./backend");
 const CLEANUP = require("./data/cleanup");
 const TWEAKS = require("./data/tweaks");
@@ -12,6 +13,36 @@ const GFX = require("./data/graphics");
 
 let win = null;
 let busy = false;
+
+// ------------------------------------------------------------------ Permisos de administrador
+// El ejecutable NO pide administrador en su manifiesto: si lo hiciera, Windows impediría a Chromium
+// crear sus procesos internos (interfaz, GPU), que se lanzan con permisos reducidos a propósito
+// (sandbox) a partir del mismo .exe. En su lugar, si no somos administrador, nos relanzamos
+// elevados con el aviso normal de Windows (UAC) y esta instancia se cierra.
+function isElevated() {
+  if (process.platform !== "win32") return true;
+  const ok = (cmd, args) => { try { return spawnSync(cmd, args, { windowsHide: true, stdio: "ignore", timeout: 10000 }).status === 0; } catch { return false; } };
+  return ok("fltmc", []) || ok("net", ["session"]);
+}
+
+function relaunchElevated() {
+  const q = (s) => "'" + String(s).replace(/'/g, "''") + "'";
+  const args = [...process.argv.slice(1), "--toolbox-elevated"];
+  const script = `Start-Process -FilePath ${q(process.execPath)} -ArgumentList @(${args.map(q).join(",")}) -WorkingDirectory ${q(process.cwd())} -Verb RunAs`;
+  const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")],
+    { windowsHide: true, stdio: "ignore" });
+  return r.status === 0;
+}
+
+// «--toolbox-elevated» evita un bucle si la detección fallara aun teniendo permisos
+if (process.platform === "win32" && !process.argv.includes("--toolbox-elevated") && !isElevated()) {
+  if (!relaunchElevated()) {
+    dialog.showErrorBox("ToolBox necesita permisos de administrador",
+      "Para limpiar carpetas del sistema y cambiar ajustes, ToolBox tiene que abrirse como administrador. " +
+      "Vuelve a abrirlo y pulsa «Sí» en el aviso de Windows.");
+  }
+  app.exit(0);
+}
 
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on("second-instance", () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
