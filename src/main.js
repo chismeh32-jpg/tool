@@ -34,8 +34,13 @@ function createWindow() {
       sandbox: true,
     },
   });
-  win.once("ready-to-show", () => win.show());
+  win.once("ready-to-show", () => { log("Ventana lista."); win.show(); });
   win.webContents.on("did-finish-load", () => log("Interfaz cargada."));
+  // Si algo falla al cargar la interfaz, que quede en el registro (sirve para pedir ayuda)
+  win.webContents.on("did-fail-load", (_e, code, desc, url) => log(`✖ No se pudo cargar la interfaz: ${desc} (${code}) ${url}`));
+  win.webContents.on("render-process-gone", (_e, d) => log(`✖ La interfaz se cerró inesperadamente: ${d.reason} (código ${d.exitCode})`));
+  win.webContents.on("preload-error", (_e, p, err) => log(`✖ Error en ${path.basename(p)}: ${err && err.message}`));
+  win.on("unresponsive", () => log("⚠ La ventana no responde."));
   win.loadFile(path.join(__dirname, "ui", "index.html"));
 
   // Los enlaces externos se abren en el navegador, nunca dentro de la app
@@ -280,6 +285,7 @@ ipcMain.handle("apps:install", (_e, ids) =>
   exclusive(async () => ({ results: await backend.appsInstall(validIds(ids, APPS), log, progress("install")) })));
 ipcMain.handle("apps:upgradeAll", () => exclusive(() => backend.appsUpgradeAll(log)));
 
+app.on("child-process-gone", (_e, d) => log(`⚠ Proceso interno cerrado: ${d.type} – ${d.reason} (código ${d.exitCode})`));
 app.whenReady().then(() => {
   log(`ToolBox ${app.getVersion()} iniciado${backend.isMock ? " (modo demostración)" : ""}.`);
   createWindow();

@@ -52,8 +52,13 @@ jobs:
           $logDir = Join-Path $env:APPDATA 'ToolBox\logs'
           Remove-Item $logDir -Recurse -Force -ErrorAction SilentlyContinue
           $p = Start-Process dist/win-unpacked/ToolBox.exe -PassThru
-          Start-Sleep -Seconds 20
-          $log = Get-Content (Join-Path $logDir '*.log') -Raw -ErrorAction SilentlyContinue
+          # Espera hasta 90 s (la primera vez el antivirus analiza el ejecutable nuevo)
+          for ($i = 0; $i -lt 45; $i++) {
+            Start-Sleep -Seconds 2
+            $log = Get-Content (Join-Path $logDir '*.log') -Raw -ErrorAction SilentlyContinue
+            if ($log -match 'Interfaz cargada|No se pudo cargar|se cerró inesperadamente') { break }
+          }
+          Write-Host "Proceso vivo: $(-not $p.HasExited)"
           Write-Host $log
           Stop-Process -Name ToolBox -Force -ErrorAction SilentlyContinue
           if ($log -notmatch 'iniciado') { throw 'El programa empaquetado no arrancó' }
