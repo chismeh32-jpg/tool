@@ -33,6 +33,10 @@ Cada limpieza viene marcada como **Seguro** o **Precaución**, y antes de los ca
 ## Novedades
 
 **0.6.1 – Seguridad y fiabilidad** (revisión de todo el código)
+- 🔴 **Arreglado un fallo grave: en Windows la ventana de ToolBox no llegaba a cargar** (versiones 0.1 a 0.6).
+  El ejecutable pedía administrador en su manifiesto y Windows impedía a Chromium crear sus procesos internos
+  de interfaz y GPU (error 18 de su «sandbox»). Ahora ToolBox se relanza como administrador al abrirse (con el
+  aviso de siempre) y una prueba en GitHub abre el programa empaquetado en Windows y comprueba que la interfaz carga.
 - **Protecciones de Electron («fuses») activadas**: ToolBox se ejecuta como administrador, así que ya no acepta
   variables como `ELECTRON_RUN_AS_NODE` o `NODE_OPTIONS`, ni el depurador, y verifica que su código no ha sido
   modificado antes de arrancar.
