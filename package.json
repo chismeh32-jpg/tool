@@ -1,7 +1,7 @@
 {
   "name": "toolbox",
   "productName": "ToolBox",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Pon tu Windows a punto: limpieza, instalación de apps y ajustes, explicados paso a paso.",
   "main": "src/main.js",
   "author": "chismeh32-jpg",
@@ -26,6 +26,13 @@
     "directories": { "output": "dist" },
     "files": ["src/**/*", "package.json"],
     "extraResources": [{ "from": "native/bin", "to": "bin", "filter": ["*.exe", "*.txt"] }],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    },
     "win": {
       "target": ["nsis", "portable"],
       "icon": "build/icon.png",
@@ -33,6 +40,7 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": true,
       "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": true,
       "artifactName": "ToolBox-Setup-${version}.${ext}"

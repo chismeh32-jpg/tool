@@ -32,6 +32,22 @@ Cada limpieza viene marcada como **Seguro** o **Precaución**, y antes de los ca
 
 ## Novedades
 
+**0.6.1 – Seguridad y fiabilidad** (revisión de todo el código)
+- **Protecciones de Electron («fuses») activadas**: ToolBox se ejecuta como administrador, así que ya no acepta
+  variables como `ELECTRON_RUN_AS_NODE` o `NODE_OPTIONS`, ni el depurador, y verifica que su código no ha sido
+  modificado antes de arrancar.
+- **Se instala en «Archivos de programa»** (para todos los usuarios) en vez de en la carpeta del usuario, donde
+  cualquier programa sin permisos de administrador podía sustituir los archivos de ToolBox.
+- Los scripts que ToolBox ejecuta como administrador se escriben en una carpeta que otros programas de tu cuenta
+  no pueden modificar.
+- **Arreglado**: el desinstalador partía la ruta de los desinstaladores que están en carpetas con espacios
+  (casi todos los de «Archivos de programa»). Nueva prueba en Windows real que lo comprueba.
+- Aviso si ToolBox se abre con otra cuenta de administrador distinta de la del escritorio.
+- Los registros de más de 30 días se borran solos. Licencia MIT en `LICENSE`.
+
+> Si tenías instalada una versión anterior, desinstálala antes de instalar esta: antes se instalaba solo para tu
+> usuario y ahora se instala para todo el equipo.
+
 **0.6.0 – Gráficos**
 - Nueva sección **🖥️ Gráficos** que detecta tu procesador y tus tarjetas gráficas.
 - **NVIDIA**: lee y cambia los ajustes globales del Panel de control (modo de energía, baja latencia, calidad del

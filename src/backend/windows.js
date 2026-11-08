@@ -20,6 +20,10 @@ async function systemInfo() {
     $cpu = (Get-CimInstance Win32_Processor | Select-Object -First 1).Name
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
     $admin = ([Security.Principal.WindowsPrincipal]$id).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    # Dueño del escritorio (explorer.exe): si no coincide con quien ejecuta ToolBox, los ajustes de
+    # usuario irían a otra cuenta (pasa al escribir la contraseña de OTRO administrador en el aviso de Windows)
+    $ex = Get-CimInstance Win32_Process -Filter "Name='explorer.exe'" -ErrorAction SilentlyContinue | Select-Object -First 1
+    $desktopUser = if ($ex) { (Invoke-CimMethod -InputObject $ex -MethodName GetOwner -ErrorAction SilentlyContinue).User } else { $null }
     Emit @{
       os = $os.Caption; version = $os.Version; build = $os.BuildNumber
       ram = [int64]$os.TotalVisibleMemorySize * 1024
@@ -27,6 +31,7 @@ async function systemInfo() {
       drive = $env:SystemDrive; diskTotal = [int64]$disk.Size; diskFree = [int64]$disk.FreeSpace
       admin = $admin
       uptimeHours = [math]::Round(((Get-Date) - $os.LastBootUpTime).TotalHours, 1)
+      desktopUser = $desktopUser
     }`);
   return { ...json[0], mock: false };
 }
@@ -356,7 +361,7 @@ async function appsInstalled() {
 
 async function installedIdsFromExport() {
   const fs = require("fs"), os = require("os"), path = require("path"), crypto = require("crypto");
-  const file = path.join(os.tmpdir(), `toolbox-export-${crypto.randomUUID()}.json`);
+  const file = path.join(require("./powershell").secureTempDir(), `toolbox-export-${crypto.randomUUID()}.json`);
   try {
     await runProcess("winget", ["export", "-o", file, "--source", "winget", "--accept-source-agreements", "--disable-interactivity"]);
     const data = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, ""));

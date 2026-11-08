@@ -183,6 +183,14 @@
       ["Permisos", info.admin ? "Administrador ✔" : "Sin permisos de administrador: algunas opciones no funcionarán"],
     ];
     rows.forEach(([k, v]) => specs.append(el("dt", "", k), el("dd", "", v)));
+    const warn = $("#other-user-warning");
+    const other = info.desktopUser && info.user && info.desktopUser.toLowerCase() !== info.user.toLowerCase();
+    warn.classList.toggle("hidden", !other);
+    if (other) {
+      warn.textContent = `⚠ ToolBox se está ejecutando con la cuenta «${info.user}», pero el escritorio abierto es de «${info.desktopUser}». ` +
+        `Los ajustes personales (Ajustes, Gráficos de Windows, temporales…) se aplicarán a «${info.user}», no a ti. ` +
+        `Para evitarlo, haz que tu cuenta sea administradora (Configuración → Cuentas) y abre ToolBox con ella.`;
+    }
   }
 
   $("#restore-btn").addEventListener("click", async () => {
@@ -620,6 +628,8 @@
       toast(`Tu PC ya tiene todo lo del perfil «${p.name}». 👍`, "ok");
       return;
     }
+    const needsExplorer = plan.tweaks.some((t) => !t.already && (state.catalog.tweaks.find((x) => x.id === t.id) || {}).restart === "explorer");
+    if (needsExplorer) body.append(el("p", "muted small", "🔄 Al final se reiniciará el Explorador de Windows: la barra de tareas desaparece un segundo."));
     const rp = restorePointOption(true);
     body.append(rp.node);
     body.append(el("p", "muted small", "Todo se puede deshacer: los ajustes desde «Ajustes» y las apps con «Reinstalar» en «Desinstalar → Apps de Windows»."));

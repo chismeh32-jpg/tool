@@ -35,6 +35,7 @@ function createWindow() {
     },
   });
   win.once("ready-to-show", () => win.show());
+  win.webContents.on("did-finish-load", () => log("Interfaz cargada."));
   win.loadFile(path.join(__dirname, "ui", "index.html"));
 
   // Los enlaces externos se abren en el navegador, nunca dentro de la app
@@ -55,6 +56,14 @@ function logPath() {
     const dir = app.getPath("logs");
     fs.mkdirSync(dir, { recursive: true });
     logFile = path.join(dir, `toolbox-${new Date().toISOString().slice(0, 10)}.log`);
+    // Los registros de más de 30 días sobran
+    try {
+      const limit = Date.now() - 30 * 24 * 3600 * 1000;
+      for (const f of fs.readdirSync(dir)) {
+        const full = path.join(dir, f);
+        if (/^toolbox-\d{4}-\d{2}-\d{2}\.log$/.test(f) && fs.statSync(full).mtimeMs < limit) fs.rmSync(full, { force: true });
+      }
+    } catch { /* no es grave */ }
   }
   return logFile;
 }

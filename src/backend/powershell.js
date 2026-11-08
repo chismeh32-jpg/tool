@@ -107,6 +107,18 @@ function TB-DelValue([string]$h, [string]$sub, [string]$name) {
 function TB-DelKey([string]$h, [string]$sub) { (TB-Root $h).DeleteSubKeyTree($sub, $false) }
 `;
 
+/**
+ * Carpeta para los scripts que se ejecutan como administrador.
+ * NO se usa %TEMP% del usuario: cualquier programa de esa cuenta (sin permisos de administrador) puede
+ * modificar archivos ahí y colar código entre que ToolBox escribe el script y PowerShell lo ejecuta.
+ * En %SystemRoot%\Temp un usuario normal puede crear archivos pero no leer ni modificar los ajenos,
+ * y el nombre es aleatorio («wx» falla si ya existiera).
+ */
+function secureTempDir() {
+  const sys = process.env.SystemRoot && path.join(process.env.SystemRoot, "Temp");
+  return sys && fs.existsSync(sys) ? sys : os.tmpdir();
+}
+
 /** Convierte un valor JS en un literal de PowerShell entre comillas simples. */
 function ps(value) {
   return "'" + String(value).replace(/'/g, "''") + "'";
@@ -119,8 +131,8 @@ function ps(value) {
  * @returns {Promise<{code:number, json:any[], output:string[]}>}
  */
 function runPowerShell(script, opts = {}) {
-  const file = path.join(os.tmpdir(), `toolbox-${crypto.randomUUID()}.ps1`);
-  fs.writeFileSync(file, "\uFEFF" + PRELUDE + "\n" + script, "utf8");
+  const file = path.join(secureTempDir(), `toolbox-${crypto.randomUUID()}.ps1`);
+  fs.writeFileSync(file, "\uFEFF" + PRELUDE + "\n" + script, { encoding: "utf8", flag: "wx" });
 
   return new Promise((resolve, reject) => {
     const child = spawn("powershell.exe",
@@ -237,4 +249,4 @@ function runProcess(command, args, opts = {}) {
   });
 }
 
-module.exports = { runPowerShell, runProcess, parsePercent, ps };
+module.exports = { runPowerShell, runProcess, parsePercent, ps, secureTempDir };

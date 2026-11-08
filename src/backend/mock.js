@@ -26,7 +26,7 @@ async function systemInfo() {
   return {
     os: "Microsoft Windows 11 Home (demo)", version: "10.0.26100", build: "26100",
     ram: 16 * GB, cpu: "AMD Ryzen 5 5600X 6-Core Processor", computer: "PC-DEMO", user: "tú",
-    drive: "C:", diskTotal: 476 * GB, diskFree, admin: true, uptimeHours: 52.3, mock: true,
+    drive: "C:", diskTotal: 476 * GB, diskFree, admin: true, uptimeHours: 52.3, desktopUser: "tú", mock: true,
   };
 }
 

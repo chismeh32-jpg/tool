@@ -84,6 +84,30 @@ const regExists = async (k) => (await runProcess("reg.exe", ["query", k])).code 
   assert.ok(await regExists("HKCU\\Software\\TestVendorZ\\OtherApp"), "la clave de OtherApp debe seguir");
   console.log("   ✔ Restos borrados y trampas intactas.");
 
+  console.log("5b) Desinstalador en una ruta CON ESPACIOS (como casi todos en «Program Files»)");
+  // El desinstalador es una copia de cmd.exe que apunta la línea de órdenes exacta que recibe.
+  const spacedDir = path.join(PF, "ToolBox Spaced Test");
+  const spacedExe = path.join(spacedDir, "uninstall.exe");
+  const cmdlineFile = path.join(process.env.SystemRoot, "Temp", "toolbox-cmdline-test.txt");
+  fs.mkdirSync(spacedDir, { recursive: true });
+  fs.copyFileSync(path.join(process.env.SystemRoot, "System32", "cmd.exe"), spacedExe);
+  fs.rmSync(cmdlineFile, { force: true });
+  const spacedCmd = `"${spacedExe}" /v:on /d /c echo !CMDCMDLINE!> "${cmdlineFile}" & reg delete "${UN}\\ToolBoxSpacedTest" /f`;
+  await runPowerShell(String.raw`
+    $u = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ToolBoxSpacedTest'
+    New-Item -Path $u -Force | Out-Null
+    Set-ItemProperty $u DisplayName 'ToolBox Spaced Test'
+    Set-ItemProperty $u UninstallString '${spacedCmd.replace(/'/g, "''")}'`);
+  const spaced = (await backend.programsList()).find((p) => p.name === "ToolBox Spaced Test");
+  assert.ok(spaced, "el programa con espacios debe aparecer");
+  const rs = await backend.programUninstall(spaced, log, { waitMs: 60000 });
+  const seen = fs.existsSync(cmdlineFile) ? fs.readFileSync(cmdlineFile, "utf8").trim() : "(no se ejecutó)";
+  console.log("   línea recibida:", seen);
+  assert.ok(rs.uninstalled, "el desinstalador con espacios debe ejecutarse y terminar");
+  assert.ok(seen.startsWith(`"${spacedExe}"`), "la ruta del desinstalador debe llegar ENTRECOMILLADA");
+  fs.rmSync(spacedDir, { recursive: true, force: true });
+  fs.rmSync(cmdlineFile, { force: true });
+
   console.log("6) Perfil «Privacidad» de verdad (ajustes + limpieza)");
   assert.deepStrictEqual(profiles.validateProfiles(), []);
   const plan = await profiles.planProfile(backend, "privacy");

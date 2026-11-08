@@ -42,6 +42,23 @@ jobs:
         # Reintenta una vez si falla la descarga de Electron/NSIS (fallo de red puntual)
         run: npm run dist; if ($LASTEXITCODE -ne 0) { Start-Sleep -Seconds 20; npm run dist }
 
+      - name: Comprobar protecciones de Electron y que la app arranca
+        run: |
+          npx --no-install @electron/fuses read --app dist/win-unpacked/ToolBox.exe | Tee-Object -FilePath fuses.txt
+          foreach ($f in 'RunAsNode is Disabled', 'EnableNodeOptionsEnvironmentVariable is Disabled', 'EnableNodeCliInspectArguments is Disabled', 'EnableEmbeddedAsarIntegrityValidation is Enabled', 'OnlyLoadAppFromAsar is Enabled') {
+            if (-not (Select-String -Path fuses.txt -SimpleMatch $f -Quiet)) { throw "Falta la protección: $f" }
+          }
+          # Arranca el programa empaquetado: si la verificación del asar fallara, no llegaría a escribir el registro
+          $logDir = Join-Path $env:APPDATA 'ToolBox\logs'
+          Remove-Item $logDir -Recurse -Force -ErrorAction SilentlyContinue
+          $p = Start-Process dist/win-unpacked/ToolBox.exe -PassThru
+          Start-Sleep -Seconds 20
+          $log = Get-Content (Join-Path $logDir '*.log') -Raw -ErrorAction SilentlyContinue
+          Write-Host $log
+          Stop-Process -Name ToolBox -Force -ErrorAction SilentlyContinue
+          if ($log -notmatch 'iniciado') { throw 'El programa empaquetado no arrancó' }
+          if ($log -notmatch 'Interfaz cargada') { throw 'La interfaz no se cargó' }
+
       - name: Subir instaladores
         uses: actions/upload-artifact@v4
         with:

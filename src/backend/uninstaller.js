@@ -73,7 +73,9 @@ async function programUninstall(entry, log, { quiet = false, signal = {}, waitMs
   log(`▶ Abriendo el desinstalador de ${entry.name}…`);
   log(`   ${cmd.exe} ${cmd.args}`);
   const exitCode = await new Promise((resolve) => {
-    const child = spawn(cmd.exe, cmd.args ? [cmd.args] : [], { windowsVerbatimArguments: true, windowsHide: false });
+    // Con windowsVerbatimArguments Node no entrecomilla NADA, tampoco el propio programa: sin argv0
+    // entrecomillado, «C:\Program Files\X\uninstall.exe» llegaría partido por el espacio.
+    const child = spawn(cmd.exe, cmd.args ? [cmd.args] : [], { windowsVerbatimArguments: true, windowsHide: false, argv0: `"${cmd.exe}"` });
     child.on("error", (e) => { log("   ✖ " + e.message); resolve(-1); });
     child.on("close", (code) => resolve(code === null ? -1 : code >>> 0));
   });
